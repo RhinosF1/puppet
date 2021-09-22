@@ -1,6 +1,12 @@
 on:
   push:
+    paths:
+      - 'modules/**/*.py'
+      - '.github/*'
   pull_request:
+    paths:
+      - 'modules/**/.py'
+      - '.github/*'
 
 jobs:
   build:
