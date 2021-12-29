@@ -2,14 +2,11 @@
 # It was mostly written by Southparkfan, with some stuff by Wikimedia.
 
 # Credits go to Southparkfan and the contributors of Wikimedia's Varnish configuration.
-# See their Puppet repo (https://github.com/wikimedia/operations-puppet)
+# See their Puppet repo (https://github.com/wikimedia/puppet)
 # for the LICENSE.
 
-# If you have any questions about the Varnish setup,
-# please contact Southparkfan <southparkfan [at] miraheze [dot] org>.
-
 # Marker to tell the VCL compiler that this VCL has been adapted to the
-# new 4.0 format.
+# new 4.1 format.
 vcl 4.1;
 
 import directors;
@@ -117,11 +114,6 @@ backend test3 {
 	.port = "8091";
 }
 
-backend mwtask1_test {
-	.host = "127.0.0.1";
-	.port = "8089";
-}
-
 # end test backend
 
 
@@ -209,6 +201,11 @@ sub mw_identify_device {
 }
 
 sub mw_rate_limit {
+	if (req.http.User-Agent ~ "http://mj12bot.com/") {
+		if (vsthrottle.is_denied(req.http.User-Agent, 1, 10s)) {
+			return (synth(429, "Bot Rate Limit Exceeded - Contact sre[at]miraheze[dot]org"));
+		}
+	}
 	# Allow higher limits for static.mh.o, we can handle more of those requests
 	if (req.http.Host == "static.miraheze.org") {
 		if (vsthrottle.is_denied("static:" + req.http.X-Real-IP, 500, 1s)) {
@@ -250,6 +247,28 @@ sub vcl_synth {
 		set resp.status = 302;
 		return (deliver);
 	}
+
+	if (resp.reason == "T217669") {
+		set resp.reason = "OK";
+		set resp.http.Access-Control-Allow-Origin = "*";
+		return (deliver);
+	}
+
+	// Handle CORS preflight requests
+	if (
+		req.http.Host == "static.miraheze.org" &&
+		resp.reason == "CORS Preflight"
+	) {
+		set resp.reason = "OK";
+		set resp.http.Connection = "keep-alive";
+		set resp.http.Content-Length = "0";
+
+		// allow Range requests, and avoid other CORS errors when debugging with X-Miraheze-Debug
+		set resp.http.Access-Control-Allow-Origin = "*";
+		set resp.http.Access-Control-Allow-Headers = "Range,X-Miraheze-Debug";
+		set resp.http.Access-Control-Allow-Methods = "GET, HEAD, OPTIONS";
+		set resp.http.Access-Control-Max-Age = "86400";
+	}
 }
 
 sub recv_purge {
@@ -266,16 +285,19 @@ sub mw_vcl_recv {
 	call mw_rate_limit;
 	call mw_identify_device;
 
-	# HACK for T217669
-	if (req.url ~ "/wiki/undefined/api.php") {
-		set req.url = regsuball(req.url, "/wiki/undefined/api.php", "/w/api.php");
-	} else if (req.url ~ "/w/undefined/api.php") {
-		set req.url = regsuball(req.url, "/w/undefined/api.php", "/w/api.php");
+	// HACK for phabricator.wikimedia.org/T217669
+	if (req.url ~ "/w(iki)?/undefined/api.php") {
+		set req.url = regsuball(req.url, "/w(iki)?/undefined/api.php", "/w/api.php");
+		set req.backend_hint = mediawiki.backend();
+
+		return (synth(200, "T217669"));
 	}
-	if (req.url ~ "^/\.well-known") {
-		set req.backend_hint = mwtask1;
-		return (pass);
-	} else if (req.http.Host == "sslrequest.miraheze.org") {
+
+	if (
+		req.url ~ "^/\.well-known" ||
+		req.http.Host == "sslrequest.miraheze.org" ||
+		req.http.X-Miraheze-Debug == "mwtask1.miraheze.org"
+	) {
 		set req.backend_hint = mwtask1;
 		return (pass);
 	} else if (req.http.X-Miraheze-Debug == "mw8.miraheze.org") {
@@ -299,11 +321,15 @@ sub mw_vcl_recv {
 	} else if (req.http.X-Miraheze-Debug == "test3.miraheze.org") {
 		set req.backend_hint = test3;
 		return (pass);
-	} else if (req.http.X-Miraheze-Debug == "mwtask1.miraheze.org") {
-		set req.backend_hint = mwtask1_test;
-		return (pass);
 	} else {
 		set req.backend_hint = mediawiki.backend();
+	}
+
+	if (req.http.Host == "static.miraheze.org") {
+		// CORS preflight requests
+		if (req.method == "OPTIONS" && req.http.Origin) {
+			return (synth(200, "CORS Preflight"));
+		}
 	}
 
 	# We never want to cache non-GET/HEAD requests.
@@ -331,7 +357,7 @@ sub mw_vcl_recv {
 	if (req.url ~ "^/w/(skins|resources|extensions)/" ) {
 		set req.http.Host = "meta.miraheze.org";
 	}
-	
+
 	# api & rest.php are not safe cached
 	if (req.url ~ "^/w/(api|rest).php/.*" ) {
 		return (pass);
@@ -428,12 +454,10 @@ sub vcl_backend_response {
 
 sub vcl_deliver {
 	# We set Access-Control-Allow-Origin to * for all files hosted on
-	# static.miraheze.org. We also set a hack for phabricator.wikimedia.org/T217669.
-	# And finally we also set this header for some images hosted on the
-	# same site as the wiki (private).
+	# static.miraheze.org. We also set this header for some images hosted
+	# on the same site as the wiki (private).
 	if (
 		req.http.Host == "static.miraheze.org" ||
-		req.url ~ "/w/api.php" ||
 		req.url ~ "(?i)\.(gif|jpg|jpeg|pdf|png|css|js|json|woff|woff2|svg|eot|ttf|otf|ico|sfnt|stl|STL)$"
 	) {
 		set resp.http.Access-Control-Allow-Origin = "*";
@@ -450,7 +474,7 @@ sub vcl_deliver {
 		set resp.http.Age = 0;
 	}
 
-	if (req.url ~ "^(/w/api\.php*|/w/index\.php\?title\=Special\:|/wiki/Special\:|/w/index\.php\?title\=Special%3A|/wiki/Special%3A).+$") {
+	if (req.url ~ "^(/w/(api|index|rest)\.php*|/wiki/Special(\:|%3A)(?!WikiForum)).+$") {
 		set resp.http.X-Robots-Tag = "noindex";
 	}
 

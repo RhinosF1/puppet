@@ -1,20 +1,13 @@
 # Sample config for Prometheus.
 
 global:
-  scrape_interval:     30s # By default, scrape targets every 30 seconds.
-  evaluation_interval: 30s # By default, scrape targets every 30 seconds.
-  scrape_timeout: 30s
+  scrape_interval: 15s
+  scrape_timeout: 15s
 
   # Attach these labels to any time series or alerts when communicating with
   # external systems (federation, remote storage, Alertmanager).
   external_labels:
       monitor: 'miraheze'
-
-# Alertmanager configuration
-alerting:
-  alertmanagers:
-  - static_configs:
-    - targets: ['localhost:9093']
 
 # Load and evaluate rules in this file every 'evaluation_interval' seconds.
 rule_files:
@@ -38,8 +31,6 @@ scrape_configs:
       - targets: ['localhost:9090']
 
   - job_name: node
-    # If prometheus-node-exporter is installed, grab stats about the local
-    # machine by default.
     static_configs:
       - targets: [
 <%- @host.sort.each do |host| -%>
@@ -134,10 +125,22 @@ scrape_configs:
       module: [https_mediawiki_cp]
     static_configs:
       - targets:
-        - https://cp12.miraheze.org/wiki/Main_Page
-        - https://cp13.miraheze.org/wiki/Main_Page
-        - https://cp14.miraheze.org/wiki/Main_Page
-        - https://cp15.miraheze.org/wiki/Main_Page
+        - https://cp20.miraheze.org/wiki/Main_Page
+        - https://cp21.miraheze.org/wiki/Main_Page
+        - https://cp30.miraheze.org/wiki/Main_Page
+        - https://cp31.miraheze.org/wiki/Main_Page
+        - https://mw8.miraheze.org/wiki/Special:Version
+        - https://mw9.miraheze.org/wiki/Special:Version
+        - https://mw10.miraheze.org/wiki/Special:Version
+        - https://mw11.miraheze.org/wiki/Special:Version
+        - https://mw12.miraheze.org/wiki/Special:Version
+        - https://mw13.miraheze.org/wiki/Special:Version
+        - https://mw8.miraheze.org/wiki/Special:RecentChanges
+        - https://mw9.miraheze.org/wiki/Special:RecentChanges
+        - https://mw10.miraheze.org/wiki/Special:RecentChanges
+        - https://mw11.miraheze.org/wiki/Special:RecentChanges
+        - https://mw12.miraheze.org/wiki/Special:RecentChanges
+        - https://mw13.miraheze.org/wiki/Special:RecentChanges
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

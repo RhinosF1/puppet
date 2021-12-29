@@ -1,17 +1,15 @@
 users::groups:
   - mediawiki-admins
 jobrunner: true
-contactgroups: ['icingaadmins', 'sre', 'mediawiki']
+contactgroups: ['sre', 'mediawiki']
 role::mediawiki::use_strict_firewall: true
-mediawiki::branch: 'REL1_36'
-mediawiki::php::fpm::childs: 32
+mediawiki::php::fpm::childs: 12
+mediawiki::php::fpm::fpm_max_memory: 256
+mediawiki::php::fpm::fpm_min_restart_threshold: 6
 php::php_fpm::fpm_workers_multiplier: 1.0
 php::php_version: '7.3'
 nginx::use_graylog: true
-puppet_cron_time: '4,34'
 
 puppetserver_hostname: 'puppet3.miraheze.org'
 
 base::firewall::mode: ferm
-
-mediawiki::php::fpm::fpm_min_restart_threshold: 14
