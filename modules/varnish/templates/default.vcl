@@ -91,6 +91,10 @@ sub mobile_detection {
 
 # Rate limiting logic
 sub rate_limit {
+	# RhinosF1 - Emergency - Feb 2022
+	if (req.http.User-Agent ~ "^pyton-requests" && req.url ~ "^/w/api.php" && req.method == "POST") {
+		return (synth(403, "Please set a proper User-Agent.")
+	}
 	# Allow higher limits for static.mh.o, we can handle more of those requests
 	if (req.http.Host == "static.miraheze.org") {
 		if (vsthrottle.is_denied("static:" + req.http.X-Real-IP, 500, 1s)) {
