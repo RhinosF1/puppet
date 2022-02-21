@@ -14,6 +14,8 @@ puppetserver_hostname: 'puppet111.miraheze.org'
 mediawiki::php::fpm::childs: 12
 mediawiki::php::fpm::fpm_max_memory: 256
 mediawiki::use_staging: true
+mediawiki::jobqueue::runner::cron: true
+mediawiki::jobqueue::runner::cron::wiki: 'betawiki'
 
 http_proxy: 'http://bast.miraheze.org:8080'
 gluster_volume: gluster101.miraheze.org:/static
