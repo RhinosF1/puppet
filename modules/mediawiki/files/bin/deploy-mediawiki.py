@@ -127,16 +127,16 @@ def check_up(nolog: bool, Debug: Optional[str] = None, Host: Optional[str] = Non
 
 
 def remote_sync_file(time: str, serverlist: list[str], path: str, envinfo: Environment, nolog: bool, recursive: bool = True, force: bool = False) -> int:
-    print(f'Start {path} deploys.')
+    print(f'Start {path} deploys to {serverlist}.')
+    sync_cmds = []
     for server in serverlist:
         if HOSTNAME != server.split('.')[0]:
-            print(f'Deploying {path} to {server}.')
-            ec = run_command(_construct_rsync_command(time=time, local=False, dest=path, server=server, recursive=recursive))
-            check_up(Debug=server, force=force, domain=envinfo['wikiurl'], nolog=nolog)
-            print(f'Deployed {path} to {server}.')
+            print(f'Scheduling {path} for {server}.')
+            sync_cmds.append(_construct_rsync_command(time=time, local=False, dest=path, server=server, recursive=recursive)))
         else:
-            return 0
-    print(f'Finished {path} deploys.')
+            continue
+    ec = run_batch_command(sync_cmds, 'remote sync', exitcodes)
+    print(f'Finished {path} deploys to {serverlist}.')
     return ec
 
 
@@ -215,8 +215,8 @@ def run(args: argparse.Namespace, start: float) -> None:
                 except KeyError:
                     print(f'Failed to pull {repo} due to invalid name')
 
-        for cmd in stage:  # setup env, git pull etc
-            exitcodes.append(run_command(cmd))
+        # setup env, git pull etc
+        exitcodes = run_batch_command(stage, 'staging', exitcodes)
         non_zero_code(exitcodes, nolog=args.nolog)
         for option in options:  # configure rsync & custom data for repos
             if options[option]:
@@ -245,8 +245,8 @@ def run(args: argparse.Namespace, start: float) -> None:
                 scriptOptions = '/srv/mediawiki/w/maintenance/run.php'
             rebuild.append(f'sudo -u www-data php {scriptOptions} /srv/mediawiki/w/extensions/CreateWiki/maintenance/rebuildExtensionListCache.php --wiki={envinfo["wikidbname"]}')
 
-        for cmd in rsync:  # move staged content to live
-            exitcodes.append(run_command(cmd))
+        # move staged content to live
+        exitcodes = run_batch_command(rsync, 'rsync', exitcodes)
         non_zero_code(exitcodes)
         if args.l10n:  # setup l10n
             if args.lang:
@@ -264,11 +264,11 @@ def run(args: argparse.Namespace, start: float) -> None:
             postinstall.append(f'sudo -u www-data php {scriptOptions} /srv/mediawiki/w/extensions/MirahezeMagic/maintenance/mergeMessageFileList.php --quiet --wiki={envinfo["wikidbname"]} --extensions-dir=/srv/mediawiki/w/extensions:/srv/mediawiki/w/skins --output /srv/mediawiki/config/ExtensionMessageFiles.php')
             rebuild.append(f'sudo -u www-data php {scriptOptions} /srv/mediawiki/w/maintenance/rebuildLocalisationCache.php {lang} --quiet --wiki={envinfo["wikidbname"]}')
 
-        for cmd in postinstall:  # cmds to run after rsync & install (like mergemessage)
-            exitcodes.append(run_command(cmd))
+        # cmds to run after rsync & install (like mergemessage)
+        exitcodes = run_batch_command(postinstall, 'post-install', exitcodes)
         non_zero_code(exitcodes, nolog=args.nolog)
-        for cmd in rebuild:  # update ext list + l10n
-            exitcodes.append(run_command(cmd))
+        # update ext list + l10n
+        exitcodes = run_batch_command(rebuild, 'rebuild', exitcodes)
         non_zero_code(exitcodes, nolog=args.nolog)
 
         # see if we are online - exit code 3 if not
