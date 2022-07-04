@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is a cut down and slightly modified part of IRC Bot Behavior Bundle
-# (IB3)
+#
 # Copyright (C) 2017 Bryan Davis and contributors
 # Modified August 2018 by Alex Monk <krenair@gmail.com> for python-irc 8.5.3
 #  compatibility.
@@ -25,7 +25,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class AbstractAuth(object):
+class AbstractAuth:
     """Base class for authentication mixins."""
 
     def __init__(
@@ -46,7 +46,7 @@ class AbstractAuth(object):
             nickname=nickname,
             realname=realname,
             username=self._username,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -60,9 +60,9 @@ class SASL(AbstractAuth):
         for event in ['cap', 'authenticate', '903', '908', 'welcome']:
             logger.debug('Registering for %s', event)
             self.connection.add_global_handler(
-                event, getattr(self, '_handle_%s' % event))
+                event, getattr(self, f'_handle_{event}'))
 
-    def _handle_connect(self, sock):
+    def _handle_connect(self, sock):  # noqa: U100
         """Send CAP REQ :sasl on connect."""
         self.connection.cap('REQ', 'sasl')
 
@@ -77,25 +77,22 @@ class SASL(AbstractAuth):
     def _handle_authenticate(self, conn, event):
         """Handle AUTHENTICATE responses."""
         if event.target == '+':
-            creds = '{username}\0{username}\0{password}'.format(
-                username=self._username,
-                password=self._ident_password)
-            conn.send_raw('AUTHENTICATE {}'.format(
-                base64.b64encode(creds.encode('utf8')).decode('utf8'))
-            )
+            creds = f'{self._username}\0{self._username}\0{self._ident_password}'
+            encoded_creds = base64.b64encode(creds.encode('utf8')).decode('utf8')
+            conn.send_raw(f'AUTHENTICATE {encoded_creds}')
         else:
             logger.warning('Unexpcted AUTHENTICATE response: %s', event)
             conn.disconnect()
 
-    def _handle_903(self, conn, event):
+    def _handle_903(self, conn, event):  # noqa: U100
         """Handle 903 RPL_SASLSUCCESS responses."""
         self.connection.cap('END')
 
-    def _handle_908(self, conn, event):
+    def _handle_908(self, conn, event):  # noqa: U100
         """Handle 908 RPL_SASLMECHS responses."""
         logger.warning('SASL PLAIN not supported: %s', event)
         self.die()
 
-    def _handle_welcome(self, conn, event):
+    def _handle_welcome(self, conn, event):  # noqa: U100
         """Handle WELCOME message."""
         logger.info('Connected to server %s', conn.get_server_name())

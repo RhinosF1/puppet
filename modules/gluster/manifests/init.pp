@@ -1,10 +1,9 @@
 # == Class: glusters
 
 class gluster {
-
     include gluster::apt
 
-    include ssl::wildcard
+    ssl::wildcard { 'gluster wildcard': }
     
     package { 'glusterfs-server':
         ensure   => installed,
@@ -15,7 +14,7 @@ class gluster {
         file { 'glusterfs.pem':
             ensure => 'present',
             source => 'puppet:///ssl/certificates/wildcard.miraheze.org-2020-2.crt',
-            path   => '/etc/ssl/glusterfs.pem',
+            path   => '/usr/lib/ssl/glusterfs.pem',
             owner  => 'root',
             group  => 'root',
         }
@@ -25,7 +24,7 @@ class gluster {
         file { 'glusterfs.key':
             ensure => 'present',
             source => 'puppet:///ssl-keys/wildcard.miraheze.org-2020-2.key',
-            path   => '/etc/ssl/glusterfs.key',
+            path   => '/usr/lib/ssl/glusterfs.key',
             owner  => 'root',
             group  => 'root',
             mode   => '0660',
@@ -36,7 +35,7 @@ class gluster {
         file { 'glusterfs.ca':
             ensure => 'present',
             source => 'puppet:///ssl/ca/Sectigo.crt',
-            path   => '/etc/ssl/glusterfs.ca',
+            path   => '/usr/lib/ssl/glusterfs.ca',
             owner  => 'root',
             group  => 'root',
         }
@@ -50,6 +49,12 @@ class gluster {
         }
     }
 
+    file { '/etc/glusterfs/glusterd.vol':
+        ensure  => present,
+        content => template('gluster/glusterd.vol.erb'),
+        require => Package['glusterfs-server'],
+    }
+
     service { 'glusterd':
         ensure     => running,
         enable     => true,
@@ -60,44 +65,42 @@ class gluster {
         ],
     }
 
-    monitoring::services { 'glusterd':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_glusterd',
-        },
+    monitoring::nrpe { 'glusterd':
+        command => '/usr/lib/nagios/plugins/check_procs -a /usr/sbin/glusterd -c 1:'
     }
 
-    monitoring::services { 'glusterd_volume':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_glusterd_volume',
-        },
+    monitoring::nrpe { 'glusterd Volume':
+        command => '/usr/lib/nagios/plugins/check_procs -a /usr/sbin/glusterfsd -c 1:'
     }
 
     if lookup('gluster_client', {'default_value' => false}) {
-        # $gluster_volume_backup = lookup('gluster_volume_backup', {'default_value' => 'glusterfs2.miraheze.org:/prodvol'})
-        # backup-volfile-servers=
         if !defined(Gluster::Mount['/mnt/mediawiki-static']) {
             gluster::mount { '/mnt/mediawiki-static':
               ensure    => mounted,
-              volume    => lookup('gluster_volume', {'default_value' => 'gluster3.miraheze.org:/static'}),
+              volume    => lookup('gluster_volume', {'default_value' => 'gluster101.miraheze.org:/static'}),
             }
         }
 
-        monitoring::services { 'Gluster Disk Space':
-            check_command => 'nrpe',
-            vars          => {
-                nrpe_command => 'check_gluster_disk',
-            },
+        monitoring::nrpe { 'Gluster Disk Space':
+            command => '/usr/lib/nagios/plugins/check_disk -w 10% -c 5% -p /mnt/mediawiki-static'
         }
     }
 
-    gluster::logging { 'glusterd':
-        file_source_options => [
-            '/var/log/glusterfs/glusterd.log',
-            { 'flags' => 'no-parse' }
-        ],
-        program_name => 'glusterd',
+    $syslog_daemon = lookup('base::syslog::syslog_daemon', {'default_value' => 'syslog_ng'})
+    if $syslog_daemon == 'syslog_ng' {
+        gluster::logging { 'glusterd':
+            file_source_options => [
+                '/var/log/glusterfs/glusterd.log',
+                { 'flags' => 'no-parse' }
+            ],
+            program_name => 'glusterd',
+        }
+    } else {
+        rsyslog::input::file { 'glusterd':
+            path              => '/var/log/glusterfs/glusterd.log',
+            syslog_tag_prefix => '',
+            use_udp           => true,
+        }
     }
 
     logrotate::conf { 'glusterfs-common':
@@ -105,5 +108,5 @@ class gluster {
         source => 'puppet:///modules/gluster/glusterfs-common.logrotate.conf',
     }
 
-    include prometheus::gluster_exporter
+    include prometheus::exporter::gluster
 }

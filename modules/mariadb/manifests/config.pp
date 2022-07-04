@@ -1,29 +1,19 @@
 # class: mariadb::config
 class mariadb::config(
-    String                       $config                       = undef,
-    Optional[Boolean]            $instances                    = undef,
-    String                       $password                     = undef,
-    String                       $datadir                      = '/srv/mariadb',
-    String                       $tmpdir                       = '/tmp',
-    Integer                      $innodb_buffer_pool_instances = 1,
-    String                       $innodb_buffer_pool_size      = '768M',
-    String                       $server_role                  = 'master',
-    Integer                      $max_connections              = 90,
-    Enum['10.2', '10.3', '10.4'] $version                      = lookup('mariadb::version', {'default_value' => '10.4'}),
-    String                       $icinga_password              = undef,
-    Integer                      $table_definition_cache       = 10000,
-    Integer                      $table_open_cache             = 10000,
+    String            $config                       = undef,
+    String            $password                     = undef,
+    String            $datadir                      = '/srv/mariadb',
+    String            $tmpdir                       = '/tmp',
+    String            $innodb_buffer_pool_size      = '5G',
+    Integer           $max_connections              = 500,
+    Enum['10.5']      $version                      = lookup('mariadb::version', {'default_value' => '10.5'}),
+    String            $icinga_password              = undef,
 ) {
     $exporter_password = lookup('passwords::db::exporter')
     $ido_db_user_password = lookup('passwords::icinga_ido')
     $icingaweb2_db_user_password = lookup('passwords::icingaweb2')
     $roundcubemail_password = lookup('passwords::roundcubemail')
     $mariadb_replica_password = lookup('passwords::mariadb_replica_password')
-
-    $server_id = inline_template(
-        "<%= @virtual_ip_address.split('.').inject(0)\
-{|total,value| (total << 8 ) + value.to_i} %>"
-    )
 
     file { '/etc/my.cnf':
         owner   => 'root',
@@ -105,24 +95,22 @@ class mariadb::config(
         override => true,
         restart  => false,
     }
+    
+    rsyslog::input::file { 'mysql':
+        path              => '/var/log/mysql/mysql-error.log',
+        syslog_tag_prefix => '',
+        use_udp           => true,
+    }
 
-    file { '/usr/lib/nagios/plugins/check_mysql-replication.pl':
-         source => 'puppet:///modules/mariadb/check_mysql-replication.pl',
-         owner  => 'root',
-         group  => 'root',
-         mode   => '0755',
-     }
-
-    if $instances == undef {
-        monitoring::services { 'MariaDB':
-            check_command => 'mysql',
-            vars          => {
-                mysql_hostname  => $::fqdn,
-                mysql_username  => 'icinga',
-                mysql_password  => $icinga_password,
-                mysql_ssl       => true,
-                mysql_cacert    => '/etc/ssl/certs/Sectigo.crt',
-            },
-        }
+    monitoring::services { 'MariaDB':
+        check_command => 'mysql',
+        docs          => 'https://meta.miraheze.org/wiki/Tech:MariaDB',
+        vars          => {
+            mysql_hostname  => $::fqdn,
+            mysql_username  => 'icinga',
+            mysql_password  => $icinga_password,
+            mysql_ssl       => true,
+            mysql_cacert    => '/etc/ssl/certs/Sectigo.crt',
+        },
     }
 }

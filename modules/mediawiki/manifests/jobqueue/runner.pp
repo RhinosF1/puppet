@@ -1,33 +1,16 @@
-# class: mediawiki::jobqueue::runner
+# === Class mediawiki::jobqueue::runner
 #
 # Defines a jobrunner process for jobrunner selected machine only.
 class mediawiki::jobqueue::runner {
-    require_package('python3-xmltodict')
+    include mediawiki::jobqueue::shared
+    $wiki = lookup('mediawiki::jobqueue::wiki')
+    ensure_packages('python3-xmltodict')
 
-    git::clone { 'JobRunner':
-        ensure    => latest,
-        directory => '/srv/jobrunner',
-        origin    => 'https://github.com/miraheze/jobrunner-service',
-    }
-
-    $redis_password = lookup('passwords::redis::master')
-
-    if lookup('jobrunner::intensive', {'default_value' => false}) {
-        $config = 'jobrunner-hi.json.erb'
-    } else {
-        $config = 'jobrunner.json.erb'
-    }
-
-    file { '/srv/jobrunner/jobrunner.json':
-        ensure  => present,
-        content => template("mediawiki/${config}"),
-        notify  => Service['jobrunner'],
-        require => Git::Clone['JobRunner'],
-    }
 
     systemd::service { 'jobrunner':
         ensure  => present,
         content => systemd_template('jobrunner'),
+        subscribe => File['/srv/jobrunner/jobrunner.json'],
         restart => true,
     }
 
@@ -50,7 +33,7 @@ class mediawiki::jobqueue::runner {
 
         cron { 'managewikis':
             ensure  => present,
-            command => '/usr/bin/php /srv/mediawiki/w/extensions/CreateWiki/maintenance/manageInactiveWikis.php --wiki loginwiki --write >> /var/log/mediawiki/cron/managewikis.log',
+            command => "/usr/bin/php /srv/mediawiki/w/extensions/CreateWiki/maintenance/manageInactiveWikis.php --wiki ${wiki} --write >> /var/log/mediawiki/cron/managewikis.log",
             user    => 'www-data',
             minute  => '5',
             hour    => '12',
@@ -75,15 +58,16 @@ class mediawiki::jobqueue::runner {
             month   => '*',
             weekday => [ '6' ],
         }
-
-        cron { 'generate sitemap index':
-            ensure  => present,
-            command => '/usr/bin/python3 /srv/mediawiki/w/extensions/MirahezeMagic/py/generateSitemapIndex.py',
-            user    => 'www-data',
-            minute  => '0',
-            hour    => '0',
-            month   => '*',
-            weekday => [ '7' ],
+        if $wiki == 'metawiki' {
+            cron { 'generate sitemap index':
+                ensure  => present,
+                command => '/usr/bin/python3 /srv/mediawiki/w/extensions/MirahezeMagic/py/generateSitemapIndex.py',
+                user    => 'www-data',
+                minute  => '0',
+                hour    => '0',
+                month   => '*',
+                weekday => [ '7' ],
+            }
         }
 
         cron { 'update_statistics':
@@ -114,10 +98,8 @@ class mediawiki::jobqueue::runner {
         }
     }
 
-    monitoring::services { 'JobRunner Service':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_jobrunner',
-        },
+    monitoring::nrpe { 'JobRunner Service':
+        command => '/usr/lib/nagios/plugins/check_procs -a redisJobRunnerService -c 1:1',
+        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/MediaWiki_Monitoring#JobRunner_Service'
     }
 }

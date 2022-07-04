@@ -1,8 +1,7 @@
 # class: role::db
-class role::db(
-    Optional[Array] $backup_clusters    = lookup('role::db::backup_clusters', {'default_value' => undef})
-) {
+class role::db {
     include mariadb::packages
+    include prometheus::exporter::mariadb
 
     $mediawiki_password = lookup('passwords::db::mediawiki')
     $wikiadmin_password = lookup('passwords::db::wikiadmin')
@@ -13,8 +12,10 @@ class role::db(
     $icinga_password = lookup('passwords::db::icinga')
     $roundcubemail_password = lookup('passwords::roundcubemail')
     $icingaweb2_db_user_password = lookup('passwords::icingaweb2')
+    $ido_db_user_password = lookup('passwords::icinga_ido')
+    $reports_password = lookup('passwords::db::reports')
 
-    include ssl::wildcard
+    ssl::wildcard { 'db wildcard': }
 
     file { '/etc/ssl/private':
         ensure => directory,
@@ -26,7 +27,6 @@ class role::db(
     class { 'mariadb::config':
         config          => 'mariadb/config/mw.cnf.erb',
         password        => lookup('passwords::db::root'),
-        server_role     => 'master',
         icinga_password => $icinga_password,
     }
 
@@ -60,8 +60,13 @@ class role::db(
         content => template('mariadb/grants/icinga2-grants.sql.erb'),
     }
 
+    file { '/etc/mysql/miraheze/reports-grants.sql':
+        ensure  => present,
+        content => template('mariadb/grants/reports-grants.sql.erb'),
+    }
+
     $firewall_rules_str = join(
-        query_facts('Class[Role::Db] or Class[Role::Mediawiki] or Class[Role::Icinga2] or Class[Role::Roundcubemail] or Class[Role::Phabricator]', ['ipaddress', 'ipaddress6'])
+        query_facts('Class[Role::Db] or Class[Role::Mediawiki] or Class[Role::Icinga2] or Class[Role::Roundcubemail] or Class[Role::Phabricator] or Class[Role::Matomo] or Class[Role::Reports]', ['ipaddress', 'ipaddress6'])
         .map |$key, $value| {
             "${value['ipaddress']} ${value['ipaddress6']}"
         }
@@ -86,23 +91,17 @@ class role::db(
         ],
     }
 
-    # We only need to run a single instance of mysqld_exporter,
-    # listens on port 9104 by default.
-    prometheus::mysqld_exporter::instance { 'main':
-        client_socket => '/run/mysqld/mysqld.sock'
-    }
-
     # Backup provisioning
     file { '/srv/backups':
         ensure => directory,
     }
 
     cron { 'DB_backups':
-        ensure  => present,
-        command => "/usr/bin/mydumper -G -E -R -m -v 3 -t 1 -c -x '^(?!([0-9a-z]+wiki.(objectcache|querycache|querycachetwo|recentchanges|searchindex)))' --trx-consistency-only -o '/srv/backups/dbs' -L '/srv/backups/recent.log'",
+        ensure  => absent,
+        command => "/usr/bin/mydumper -N -W -k --less-locking -m -v 3 -t 1 -c -x '^(?!((mysql|performance_schema|information_schema).+|[0-9a-z]+wiki.(objectcache|querycache|querycachetwo|recentchanges|searchindex)))' --trx-consistency-only -o '/srv/backups/dbs' -L '/srv/backups/recent.log'",
         user    => 'root',
         minute  => '0',
-        hour    => '6',
+        hour    => fqdn_rand(23, 'mydumper'),
     }
 
     motd::role { 'role::db':

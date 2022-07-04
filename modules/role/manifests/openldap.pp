@@ -8,14 +8,14 @@ class role::openldap (
     String $admin_password = lookup('profile::openldap::admin_password'),
     String $ldapvi_password = lookup('profile::openldap::ldapvi_password'),
 ) {
-    include ssl::wildcard
+    ssl::wildcard { 'openldap wildcard': }
 
     class { 'openldap::server':
         ldaps_ifs => ['/'],
         ssl_ca    => '/etc/ssl/certs/Sectigo.crt',
         ssl_cert  => '/etc/ssl/localcerts/wildcard.miraheze.org-2020-2.crt',
         ssl_key   => '/etc/ssl/private/wildcard.miraheze.org-2020-2.key',
-        require   => Class['ssl::wildcard'],
+        require   => Ssl::Wildcard['openldap wildcard']
     }
 
     openldap::server::database { 'dc=miraheze,dc=org':
@@ -148,9 +148,9 @@ class role::openldap (
         tls_cacert => '/etc/ssl/certs/Sectigo.crt',
     }
 
-    include prometheus::openldap_exporter
+    include prometheus::exporter::openldap
 
-    require_package('ldapvi')
+    ensure_packages('ldapvi')
 
     file { '/etc/ldapvi.conf':
         content => template('role/openldap/ldapvi.conf.erb'),
@@ -173,13 +173,20 @@ class role::openldap (
         group  => 'root',
     }
 
-    $firewall_rules = query_facts('Class[Role::Grafana] or Class[Role::Graylog] or Class[Role::Mail] or Class[Role::Matomo] or Class[Role::Mediawiki] or Class[Role::Openldap]', ['ipaddress', 'ipaddress6'])
-    $firewall_rules_mapped = $firewall_rules.map |$key, $value| { "${value['ipaddress']} ${value['ipaddress6']}" }
-    $firewall_rules_str = join($firewall_rules_mapped, ' ')
+    $firewall_rules = join(
+        query_facts('Class[Role::Grafana] or Class[Role::Graylog] or Class[Role::Mail] or Class[Role::Matomo] or Class[Role::Mediawiki] or Class[Role::Openldap]', ['ipaddress', 'ipaddress6'])
+        .map |$key, $value| {
+            "${value['ipaddress']} ${value['ipaddress6']}"
+        }
+        .flatten()
+        .unique()
+        .sort(),
+        ' '
+    )
     ferm::service { 'ldaps':
         proto  => 'tcp',
         port   => '636',
-        srange => "(${firewall_rules_str})",
+        srange => "(${firewall_rules})",
     }
 
     # restart slapd if it uses more than 50% of memory (T130593)

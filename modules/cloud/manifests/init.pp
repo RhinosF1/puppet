@@ -1,32 +1,6 @@
 # == Class: cloud
 
-class cloud (
-    String                        $main_interface = 'eno0',
-    Stdlib::IP::Address           $main_ip4_address,
-    String                        $main_ip4_netmask,
-    String                        $main_ip4_broadcast,
-    String                        $main_ip4_gateway,
-    Stdlib::IP::Address           $main_ip6_address,
-    String                        $main_ip6_gateway,
-    Optional[String]              $private_interface = undef,
-    Optional[Stdlib::IP::Address] $private_ip = undef,
-    Optional[String]              $private_netmask = undef,
-) {
-
-    package { 'cloud-init':
-        ensure => absent,
-    }
-
-    file { '/etc/network/interfaces.d/50-cloud-init.cfg':
-        ensure  => 'present',
-        source  => 'puppet:///modules/cloud/cloudinit/50-cloud-init.cfg',
-    }
-
-    file { '/etc/network/interfaces':
-        ensure  => present,
-        content => template('cloud/network/interfaces.erb'),
-    }
-
+class cloud {
     file { '/etc/apt/trusted.gpg.d/proxmox.gpg':
         ensure => present,
         source => 'puppet:///modules/cloud/key/proxmox.gpg',
@@ -58,34 +32,35 @@ class cloud (
         require => Apt::Source['proxmox_apt']
     }
 
-    # Only run on a weekday of our choice, and vary it between servers
-    $dow = fqdn_rand(5, 'md_checkarray_dow') + 1
-    # Only run within a specific (February compatible) day of month range
-    $dom_start = fqdn_rand(28 - 7, 'md_checkarray_dom') + 1
-    $dom_end = $dom_start + 7
-    # Replace the default mdadm script from upstream with our own
-    file { '/etc/cron.d/mdadm':
-        ensure  => $cron_ensure,
-        content => template('cloud/mdadm-cron.erb'),
-        owner   => 'root',
-        group   => 'root',
-        mode    => '0444',
-    }
-    
-    cloud::logging { 'pveproxy':
-        file_source_options => [
-            '/var/log/pveproxy/access.log',
-            { 'flags' => 'no-parse' }
-        ],
-        program_name => 'pveproxy',
-    }
+    $syslog_daemon = lookup('base::syslog::syslog_daemon', {'default_value' => 'syslog_ng'})
+    if $syslog_daemon == 'syslog_ng' {
+        cloud::logging { 'pveproxy':
+            file_source_options => [
+                '/var/log/pveproxy/access.log',
+                { 'flags' => 'no-parse' }
+            ],
+            program_name => 'pveproxy',
+        }
 
-    cloud::logging { 'pve-firewall':
-        file_source_options => [
-            '/var/log/pve-firewall.log',
-            { 'flags' => 'no-parse' }
-        ],
-        program_name => 'pve-firewall',
+        cloud::logging { 'pve-firewall':
+            file_source_options => [
+                '/var/log/pve-firewall.log',
+                { 'flags' => 'no-parse' }
+            ],
+            program_name => 'pve-firewall',
+        }
+    } else {
+        rsyslog::input::file { 'pveproxy':
+            path              => '/var/log/pveproxy/access.log',
+            syslog_tag_prefix => '',
+            use_udp           => true,
+        }
+
+        rsyslog::input::file { 'pve-firewall':
+            path              => '/var/log/pve-firewall.log',
+            syslog_tag_prefix => '',
+            use_udp           => true,
+        }
     }
 
     logrotate::conf { 'pve':
@@ -96,5 +71,13 @@ class cloud (
     logrotate::conf { 'pve-firewall':
         ensure => present,
         source => 'puppet:///modules/cloud/pve-firewall.logrotate.conf',
+    }
+
+    monitoring::nrpe { 'SMART':
+        command => '/usr/bin/sudo /usr/lib/nagios/plugins/check_smart -g /dev/sda -i cciss,[0-6] -l -s'
+    }
+
+    monitoring::nrpe { 'IPMI Sensors':
+        command => '/usr/lib/nagios/plugins/check_ipmi_sensors --xT Memory'
     }
 }

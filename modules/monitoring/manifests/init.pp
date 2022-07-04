@@ -1,11 +1,20 @@
 class monitoring (
-    String $db_host               = 'db13.miraheze.org',
+    String $db_host,
     String $db_name               = 'icinga',
     String $db_user               = 'icinga2',
     String $db_password           = undef,
     String $mirahezebots_password = undef,
     String $ticket_salt           = '',
+    Optional[String] $icinga2_api_bind_host = undef,
 ) {
+    ensure_packages([
+        'nagios-nrpe-plugin',
+        'python3-dnspython',
+        'python3-filelock',
+        'python3-flask',
+        'python3-tldextract',
+    ])
+
     group { 'nagios':
         ensure    => present,
         name      => 'nagios',
@@ -13,13 +22,18 @@ class monitoring (
         allowdupe => false,
     }
 
+    $http_proxy = lookup('http_proxy', {'default_value' => undef})
     $version = lookup('mariadb::version', {'default_value' => '10.4'})
     apt::source { 'mariadb_apt':
         comment     => 'MariaDB stable',
         location    => "http://ams2.mirrors.digitalocean.com/mariadb/repo/${version}/debian",
         release     => "${::lsbdistcodename}",
         repos       => 'main',
-        key         => '177F4010FE56CA3336300305F1656F24C74CD1D8',
+        key      => {
+                'id' => '177F4010FE56CA3336300305F1656F24C74CD1D8',
+                'options' => "http-proxy='${http_proxy}'",
+                'server'  => 'hkp://keyserver.ubuntu.com:80',
+        },
     }
 
     apt::pin { 'mariadb_pin':
@@ -36,10 +50,13 @@ class monitoring (
         logoutput   => true,
     }
 
-    package { "mariadb-client-${version}":
-        ensure  => present,
-        require => Apt::Source['mariadb_apt'],
-    }
+    ensure_packages(
+        "mariadb-client-${version}",
+        {
+            ensure  => present,
+            require => Apt::Source['mariadb_apt'],
+        },
+    )
 
     class { '::icinga2':
         manage_repo => true,
@@ -49,6 +66,7 @@ class monitoring (
     }
 
     class { '::icinga2::feature::api':
+        bind_host   => $icinga2_api_bind_host,
         ca_host     => $::fqdn,
         ticket_salt => $ticket_salt,
     }
@@ -227,10 +245,6 @@ class monitoring (
         mode   => '0400',
     }
 
-    package { 'nagios-nrpe-plugin':
-        ensure => present,
-    }
-
     # includes a irc bot to relay messages from icinga to irc
     class { '::monitoring::ircecho':
         mirahezebots_password => $mirahezebots_password,
@@ -244,10 +258,6 @@ class monitoring (
         require => Package['nagios-nrpe-plugin'],
     }
 
-    package { 'python3-dnspython':
-        ensure => present,
-    }
-
     file { '/usr/lib/nagios/plugins/check_reverse_dns.py':
         source  => 'puppet:///modules/monitoring/check_reverse_dns.py',
         owner   => 'root',
@@ -256,13 +266,7 @@ class monitoring (
         require => Package['nagios-nrpe-plugin'],
     }
 
-    package { 'python3-tldextract':
-        ensure => present,
-    }
-
     # Setup webhook for grafana to call
-    require_package('python3-flask', 'python3-filelock')
-
     file { '/usr/local/bin/grafana-webhook.py':
         ensure  => present,
         source  => 'puppet:///modules/monitoring/grafana-webhook.py',
@@ -277,11 +281,8 @@ class monitoring (
     }
 
     # Icinga monitoring
-    monitoring::services { 'Check correctness of the icinga configuration':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_icinga_config',
-        },
+    monitoring::nrpe { 'Check correctness of the icinga configuration':
+        command => '/usr/lib/nagios/plugins/check_icinga_config /etc/icinga/icinga.cfg'
     }
 
     cron { 'remove_icinga2_perfdata_2_days':

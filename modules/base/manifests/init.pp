@@ -1,5 +1,7 @@
 # class: base
-class base {
+class base (
+    Optional[String] $http_proxy = lookup('http_proxy', {'default_value' => undef})
+) {
     include apt
     include base::packages
     include base::puppet
@@ -12,14 +14,6 @@ class base {
     include base::monitoring
     include ssh
     include users
-
-    if lookup('letsencrypt') {
-        include letsencrypt
-    }
-
-    if lookup('arcanist') {
-        include base::arcanist
-    }
 
     if !lookup('mailserver') {
         include base::mail
@@ -39,6 +33,13 @@ class base {
         ensure => present,
         source => 'puppet:///modules/base/logsalmsg',
         mode   => '0555',
+    }
+
+    if $http_proxy {
+        file { '/etc/gitconfig':
+            ensure => present,
+            content => template('base/git/gitconfig.erb'),
+        }
     }
 
     class { 'apt::backports':

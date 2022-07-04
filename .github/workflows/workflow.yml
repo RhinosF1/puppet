@@ -1,26 +1,39 @@
 on:
   push:
+    paths:
+      - '**.py'
+      - '.github/**'
+
   pull_request:
+    paths:
+      - '**.py'
+      - '.github/**'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ['3.7', '3.9']
+        python: ['3.9', '3.10']
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: true
       - name: Python ${{ matrix.python }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }} 
       - name: Install packages
         run: |
           sudo apt-get update
           sudo apt-get install -y libgnutls28-dev
-          pip install -U pip flake8
+          pip install -U pip
+          pip install -r .github/pythonchecks.txt
       - name: Run tests
         run: |
-          flake8 modules --ignore=E501,W503
+          flake8 modules/mediawiki modules/ssl modules/monitoring --enable-extensions=TC,TC1 --ignore=E501,W503,SFS301
+          pytest -vv -n auto
+          mypy modules/mediawiki modules/ssl modules/monitoring --ignore-missing-imports
+          coverage run --branch -m pytest modules/mediawiki
+          coverage report --fail-under=35
+          vermin -v --eval-annotations --backport argparse --backport importlib --backport ipaddress --backport typing --no-parse-comments . 

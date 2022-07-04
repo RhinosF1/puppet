@@ -4,8 +4,8 @@ import argparse
 import os
 
 
-def run(args):
-    longscripts = ('deleteBatch.php', 'importDump.php', 'importImages.php', 'nukeNS.php', 'rebuildall.php', 'refreshLinks.php', 'purgeList.php')
+def run(args: argparse.Namespace) -> None:
+    longscripts = ('deleteBatch.php', 'importDump.php', 'importImages.php', 'nukeNS.php', 'rebuildall.php', 'refreshLinks.php', 'purgeList.php', 'cargoRecreateData.php')
     long = False
 
     script = args.script
@@ -20,9 +20,13 @@ def run(args):
             long = True
 
     wiki = args.wiki
+    validDBLists = ('active', 'beta')
     if wiki == 'all':
         long = True
         command = f'sudo -u www-data /usr/local/bin/foreachwikiindblist /srv/mediawiki/cache/databases.json {script}'
+    elif wiki in validDBLists:
+        long = True
+        command = f'sudo -u www-data /usr/local/bin/foreachwikiindblist /srv/mediawiki/cache/{wiki}.json {script}'
     elif args.extension:
         long = True
         generate = f'php /srv/mediawiki/w/extensions/MirahezeMagic/maintenance/generateExtensionDatabaseList.php --wiki=loginwiki --extension={args.extension}'
@@ -32,7 +36,7 @@ def run(args):
     if args.arguments:
         command += ' ' + ' '.join(args.arguments)
     logcommand = f'/usr/local/bin/logsalmsg "{command}'
-    print("Will execute:")
+    print('Will execute:')
     if 'generate' in locals():
         print(generate)
     print(command)
@@ -55,10 +59,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('script')
     parser.add_argument('wiki')
-    parser.add_argument('arguments', nargs='*', default='')
+    parser.add_argument('arguments', nargs='*', default=[])
     parser.add_argument('--extension', '--skin', dest='extension')
     parser.add_argument('--no-log', dest='nolog', action='store_true')
     parser.add_argument('--confirm', '--yes', '-y', dest='confirm', action='store_true')
 
-    args, args.arguments = parser.parse_known_args()
+    args = parser.parse_known_args()[0]
+    args.arguments += parser.parse_known_args()[1]
+
     run(args)

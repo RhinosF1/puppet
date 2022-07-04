@@ -1,21 +1,19 @@
 # base::monitoring
 class base::monitoring {
-    include ::prometheus::node_exporter
+    include prometheus::exporter::node
 
     $nagios_packages = [ 'monitoring-plugins', 'nagios-nrpe-server', ]
     package { $nagios_packages:
         ensure => present,
     }
 
-    $icinga_password = lookup('passwords::db::icinga')
     file { '/etc/nagios/nrpe.cfg':
         ensure  => present,
-        content => template('base/icinga/nrpe.cfg.erb'),
+        source  => 'puppet:///modules/base/icinga/nrpe.cfg',
         require => Package['nagios-nrpe-server'],
         notify  => Service['nagios-nrpe-server'],
     }
 
-    $puppetmaster_version = lookup('puppetmaster_version', {'default_value' => 6})
     file { '/usr/lib/nagios/plugins/check_puppet_run':
         ensure  => present,
         content => template('base/icinga/check_puppet_run.erb'),
@@ -28,6 +26,12 @@ class base::monitoring {
         mode   => '0555',
     }
 
+    file { '/usr/lib/nagios/plugins/check_ipmi_sensors':
+        ensure => present,
+        source => 'puppet:///modules/base/icinga/check_ipmi_sensors',
+        mode   => '0555',
+    }
+
     service { 'nagios-nrpe-server':
         ensure     => 'running',
         hasrestart => true,
@@ -37,65 +41,48 @@ class base::monitoring {
     sudo::user { 'nrpe_sudo':
         user       => 'nagios',
         privileges => [
+            'ALL = NOPASSWD: /usr/lib/nagios/plugins/check_gdnsd_datacenters',
             'ALL = NOPASSWD: /usr/lib/nagios/plugins/check_puppet_run',
             'ALL = NOPASSWD: /usr/lib/nagios/plugins/check_smart',
+            'ALL = NOPASSWD: /usr/sbin/ipmi-sel',
+            'ALL = NOPASSWD: /usr/sbin/ipmi-sensors',
         ],
     }
 
     monitoring::hosts { $::hostname: }
 
-    monitoring::services { 'Disk Space':
-        check_command   => 'nrpe',
-        vars            => {
-            nrpe_command    => 'check_disk',
-        },
+    monitoring::nrpe { 'Disk Space':
+        command => '/usr/lib/nagios/plugins/check_disk -w 10% -c 5% -p /',
+        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#Disk_Space'
     }
 
-    monitoring::services { 'Current Load':
-        check_command   => 'nrpe',
-        vars            => {
-            nrpe_command    => 'check_load',
-        },
+    $loadCrit = $facts['virtual_processor_count'] * 2.0
+    $loadWarn = $facts['virtual_processor_count'] * 1.7
+    monitoring::nrpe { 'Current Load':
+        command => "/usr/lib/nagios/plugins/check_load -w ${loadWarn} -c ${loadCrit}",
+        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#Current_Load'
     }
 
-    monitoring::services { 'Puppet':
-        check_command   => 'nrpe',
-        vars            => {
-            nrpe_command    => 'check_puppet_run',
-        },
+    monitoring::nrpe { 'Puppet':
+        command => '/usr/bin/sudo /usr/lib/nagios/plugins/check_puppet_run -w 3600 -c 43200',
+        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#Puppet'
     }
 
     monitoring::services { 'SSH':
-        check_command   => 'ssh',
+        check_command => 'ssh',
+        docs          => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#SSH'
     }
 
-    monitoring::services { 'APT':
-        check_command   => 'nrpe',
-        vars            => {
-            nrpe_command    => 'check_apt',
-        },
+    monitoring::nrpe { 'APT':
+        command => '/usr/lib/nagios/plugins/check_apt -o',
+        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#APT'
     }
 
-    monitoring::services { 'NTP time':
-        check_command   => 'nrpe',
-        vars            => {
-            nrpe_command    => 'check_ntp_time',
-        },
+    monitoring::nrpe { 'NTP time':
+        command => '/usr/lib/nagios/plugins/check_ntp_time -H time.cloudflare.com -w 0.1 -c 0.5',
+        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#NTP'
     }
 
-    if !$facts['is_virtual'] {
-        if !empty($facts['disks']['sda']) {
-            $type = 'sata'
-        } else {
-            $type = 'nvme'
-        }
-
-
-        monitoring::services { 'SMART':
-            check_command => 'nrpe',
-            vars          => {
-                nrpe_command => "check_smart_${type}",
-            },
-        }
-    }
+    # Collect all NRPE command files
+    File <| tag == 'nrpe' |>
 }

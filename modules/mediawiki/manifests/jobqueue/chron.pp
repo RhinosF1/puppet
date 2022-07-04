@@ -1,32 +1,19 @@
-# class: mediawiki::jobqueue::chron
+# === Class mediawiki::jobqueue::chron
 #
 # JobQueue Chron runner on redis masters only
 class mediawiki::jobqueue::chron {
-    git::clone { 'JobRunner':
-        ensure    => latest,
-        directory => '/srv/jobrunner',
-        origin    => 'https://github.com/miraheze/jobrunner-service',
-    }
-
-    $redis_password = lookup('passwords::redis::master')
-
-    file { '/srv/jobrunner/jobrunner.json':
-        ensure  => present,
-        content => template('mediawiki/jobrunner.json.erb'),
-        notify  => Service['jobchron'],
-        require => Git::Clone['JobRunner'],
-    }
-
+    include mediawiki::php
+    include mediawiki::jobqueue::shared
+    
     systemd::service { 'jobchron':
         ensure  => present,
         content => systemd_template('jobchron'),
+        subscribe => File['/srv/jobrunner/jobrunner.json'],
         restart => true,
     }
 
-    monitoring::services { 'JobChron Service':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_jobchron',
-        },
+    monitoring::nrpe { 'JobChron Service':
+        command => '/usr/lib/nagios/plugins/check_procs -a redisJobChronService -c 1:1',
+        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/MediaWiki_Monitoring#JobChron_Service'
     }
 }

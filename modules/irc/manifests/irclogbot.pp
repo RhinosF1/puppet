@@ -15,6 +15,10 @@ class irc::irclogbot {
 
     $mirahezebots_password = lookup('passwords::irc::mirahezebots')
     $mirahezelogbot_password = lookup('passwords::mediawiki::mirahezelogbot')
+    $mirahezelogbot_consumer_token = lookup('passwords::mediawiki::mirahezelogbot_consumer_token')
+    $mirahezelogbot_consumer_secret = lookup('passwords::mediawiki::mirahezelogbot_consumer_secret')
+    $mirahezelogbot_access_token = lookup('passwords::mediawiki::mirahezelogbot_access_token')
+    $mirahezelogbot_access_secret = lookup('passwords::mediawiki::mirahezelogbot_access_secret')
 
     file { '/etc/irclogbot/adminlog.py':
         ensure => present,
@@ -41,10 +45,7 @@ class irc::irclogbot {
         restart => true,
     }
 
-    monitoring::services { 'IRC Log Bot':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_irc_logbot',
-        },
+    monitoring::nrpe { 'IRC Log Bot':
+        command => '/usr/lib/nagios/plugins/check_procs -a adminlogbot.py -c 1:1'
     }
 }

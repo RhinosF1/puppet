@@ -1,11 +1,11 @@
 # class: varnish
 class varnish (
     String $cache_file_name = '/srv/varnish/cache_storage.bin',
-    String $cache_file_size = '15G',
+    String $cache_file_size = '22G',
 ) {
     include varnish::nginx
     include varnish::stunnel4
-    include prometheus::varnish_prometheus_exporter
+    include prometheus::exporter::varnish
 
     ensure_packages(['varnish', 'varnish-modules'])
 
@@ -39,7 +39,10 @@ class varnish (
     }
     
     $module_path = get_module_path($module_name)
-    $csp_whitelist = loadyaml("${module_path}/data/csp.yaml")
+    $csp = loadyaml("${module_path}/data/csp.yaml")
+    $backends = lookup('varnish::backends')
+    $interval_check = lookup('varnish::interval-check')
+    $interval_timeout = lookup('varnish::interval-timeout')
 
     file { '/etc/varnish/default.vcl':
         ensure  => present,
@@ -132,17 +135,11 @@ class varnish (
         privileges => [ 'ALL = NOPASSWD: /usr/lib/nagios/plugins/check_nginx_errorrate' ],
     }
 
-    monitoring::services { 'Varnish Backends':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_varnishbackends',
-        },
+    monitoring::nrpe { 'Varnish Backends':
+        command => '/usr/bin/sudo /usr/lib/nagios/plugins/check_varnishbackends'
     }
 
-    monitoring::services { 'HTTP 4xx/5xx ERROR Rate':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_nginx_errorrate',
-        },
+    monitoring::nrpe { 'HTTP 4xx/5xx ERROR Rate':
+        command => '/usr/bin/sudo /usr/lib/nagios/plugins/check_nginx_errorrate'
     }
 }
