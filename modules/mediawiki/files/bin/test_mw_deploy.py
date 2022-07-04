@@ -163,7 +163,7 @@ def test_get_envinfo() -> None:
         ],
         'wikidbname': 'testwiki',
         'wikiurl': 'publictestwiki.com',
-                                         }
+    }
 
 
 def test_get_servers_all() -> None:
@@ -175,7 +175,7 @@ def test_get_servers_all() -> None:
         'mw121',
         'mw122',
         'mwtask111',
-                                                                     ]
+    ]
 
 
 def test_get_servers_two() -> None:

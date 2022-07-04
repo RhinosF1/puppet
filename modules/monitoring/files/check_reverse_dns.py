@@ -27,7 +27,7 @@ import re
 import sys
 import tldextract
 
-sys.excepthook = lambda type, value, traceback: print(f'{type.__name__}: {value}')
+sys.excepthook = lambda type, value, traceback: print(f'{type.__name__}: {value}')  # noqa: U100
 
 
 def get_args():
