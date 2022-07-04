@@ -1,13 +1,19 @@
 #! /usr/bin/python3
 
+from __future__ import annotations
+
 import argparse
-from typing import Optional, Union, TypedDict
 import os
-import time
-import requests
 import socket
-from sys import exit
 import subprocess
+import time
+from dataclasses import dataclass
+from sys import exit
+from typing import TypedDict
+
+from langcodes import tag_is_valid
+
+import requests
 
 
 repos = {'config': 'config', 'world': 'w', 'landing': 'landing', 'errorpages': 'ErrorPages'}
@@ -29,6 +35,41 @@ class ProcessList(TypedDict):
     operations: list[subprocess.Popen]
 
 
+@dataclass
+class WikiCommand:
+    command: str
+    wiki: str
+
+    def __str__(self):
+        return f'sudo -u {DEPLOYUSER} php {self.command} --wiki={self.wiki}'  # noqa: F841
+
+
+class CommandMap(TypedDict):
+    stage: list[str]
+    rsync: list[str]
+    postinstall: list[WikiCommand]
+    rebuild: list[WikiCommand]
+
+
+class RemoteMap(TypedDict):
+    paths: list[str]
+    files: list[str]
+
+
+class deploymap(TypedDict):
+    servers: list[str]
+    doworld: bool
+    loginfo: dict
+    branch: str
+    nolog: bool
+    force: bool
+    port: int
+    ignoretime: bool
+    debugurl: str
+    commands: CommandMap
+    remote: RemoteMap
+
+
 beta: Environment = {
     'wikidbname': 'betawiki',
     'wikiurl': 'beta.betaheze.org',
@@ -48,8 +89,8 @@ del prod
 HOSTNAME = socket.gethostname().split('.')[0]
 
 
-def get_command_array(command: str) -> list[str]:
-    arraycommand = command.split(' ')
+def get_command_array(command: str | WikiCommand) -> list[str]:
+    arraycommand = str(command).split(' ')
     commandfile = arraycommand[0]
     arraycommand.remove(commandfile)
     commandopts = ' '.join(arraycommand)
@@ -68,7 +109,7 @@ def get_server_list(envinfo: Environment, servers: str) -> list[str]:
     return servers.split(',')
 
 
-def run_batch_command(commands: list[str], tag: str, exitcodes: list[int]) -> list[int]:
+def run_batch_command(commands: list[str] | list[WikiCommand], tag: str, exitcodes: list[int]) -> list[int]:
     processes: ProcessList = {'operations': []}
     print(f'Start {tag} commands.')
     for operation in commands:
@@ -84,10 +125,10 @@ def run_batch_command(commands: list[str], tag: str, exitcodes: list[int]) -> li
     return exitcodes
 
 
-def run_command(cmd: str) -> int:
+def run_command(cmd: str | WikiCommand) -> int:
     start = time.time()
     print(f'Execute: {cmd}')
-    ec = os.system(cmd)
+    ec = os.system(str(cmd))
     print(f'Completed ({ec}) in {str(int(time.time() - start))}s!')
     return ec
 
@@ -96,7 +137,7 @@ def non_zero_code(ec: list[int], nolog: bool = True, leave: bool = True) -> bool
     for code in ec:
         if code != 0:
             if not nolog:
-                os.system('/usr/bin/logsalmsg DEPLOY ABORTED: Non-Zero Exit Code in prep, see output.')
+                os.system('/usr/local/bin/logsalmsg DEPLOY ABORTED: Non-Zero Exit Code in prep, see output.')
             if leave:
                 print('Exiting due to non-zero status.')
                 exit(1)
@@ -104,7 +145,7 @@ def non_zero_code(ec: list[int], nolog: bool = True, leave: bool = True) -> bool
     return False
 
 
-def check_up(nolog: bool, Debug: Optional[str] = None, Host: Optional[str] = None, domain: str = 'meta.miraheze.org', verify: bool = True, force: bool = False) -> bool:
+def check_up(nolog: bool, Debug: str | None = None, Host: str | None = None, domain: str = 'meta.miraheze.org', verify: bool = True, force: bool = False, port: int = 443) -> bool:
     if not Debug and not Host:
         raise Exception('Host or Debug must be specified')
     if Debug:
@@ -117,12 +158,18 @@ def check_up(nolog: bool, Debug: Optional[str] = None, Host: Optional[str] = Non
         headers = {'host': f'{Host}'}
         location = f'{Host}@{domain}'
     up = False
-    req = requests.get(f'https://{domain}/w/api.php?action=query&meta=siteinfo&formatversion=2&format=json', headers=headers, verify=verify)
+    if port == 443:
+        proto = 'https://'
+    else:
+        proto = 'http://'
+    req = requests.get(f'{proto}{domain}:{port}/w/api.php?action=query&meta=siteinfo&formatversion=2&format=json', headers=headers, verify=verify)
     if req.status_code == 200 and 'miraheze' in req.text and (Debug is None or Debug in req.headers['X-Served-By']):
         up = True
     if not up:
         print(f'Status: {req.status_code}')
         print(f'Text: {"miraheze" in req.text} \n {req.text}')
+        if 'X-Served-By' not in req.headers:
+            req.headers['X-Served-By'] = 'None'
         print(f'Debug: {(Debug is None or Debug in req.headers["X-Served-By"])}')
         if force:
             print(f'Ignoring canary check error on {location} due to --force')
@@ -137,7 +184,7 @@ def check_up(nolog: bool, Debug: Optional[str] = None, Host: Optional[str] = Non
     return up
 
 
-def remote_sync_file(time: str, serverlist: list[str], path: str, exitcodes: list[int], recursive: bool = True) -> list[int]:
+def remote_sync_file(time: bool, serverlist: list[str], path: str, exitcodes: list[int], recursive: bool = True) -> list[int]:
     print(f'Start {path} deploys to {serverlist}.')
     sync_cmds = []
     for server in serverlist:
@@ -159,7 +206,7 @@ def _get_deployed_path(repo: str) -> str:
     return f'/srv/mediawiki/{repos[repo]}/'
 
 
-def _construct_rsync_command(time: str, dest: str, recursive: bool = True, local: bool = True, location: Union[None, str] = None, server: Union[None, str] = None) -> str:
+def _construct_rsync_command(time: bool, dest: str, recursive: bool = True, local: bool = True, location: None | str = None, server: None | str = None) -> str:
     if time:
         params = '--inplace'
     else:
@@ -178,152 +225,182 @@ def _construct_rsync_command(time: str, dest: str, recursive: bool = True, local
     raise Exception(f'Error constructing command. Either server was missing or {location} != {dest}')  # noqa: R503
 
 
-def _construct_git_pull(repo: str, submodules: bool = False) -> str:
+def _construct_git_pull(repo: str, submodules: bool = False, branch: str | None = None) -> str:
+    extrap = ' '
     if submodules:
-        extrap = '--recurse-submodules'
+        extrap += '--recurse-submodules '
+
+    if branch:
+        extrap += f'origin {branch} '
+
+    return f'sudo -u {DEPLOYUSER} git -C {_get_staging_path(repo)} pull{extrap}--quiet'
+
+
+def _construct_l10n_command(lang: str | None, db: str) -> WikiCommand:
+    if lang:
+        for language in str(lang).split(','):
+            if not tag_is_valid(language):
+                raise ValueError(f'{language} is not a valid language.')
+        lang = f' --lang={lang}'
     else:
-        extrap = ''
-    return f'sudo -u {DEPLOYUSER} git -C {_get_staging_path(repo)} pull {extrap} --quiet'
+        lang = ''
+    return WikiCommand(f'/srv/mediawiki/w/maintenance/rebuildLocalisationCache.php{lang} --quiet', db)
 
 
-def run(args: argparse.Namespace, start: float) -> None:
+def _get_git_commands(world: bool, pull: str | None, branch: str | None) -> list[str]:
+    stage: list[str] = []  # commands
+    pulls: list[str] = []  # repos
+    if world and not pull:
+        pulls = ['world']
+    if pull:
+        pulls = str(pull).split(',')
+    if world and 'world' not in pulls:
+        pulls.append('world')
+    if pulls:
+        for repo in pulls:
+            if repo == 'world':
+                sm = True
+            else:
+                sm = False
+            try:
+                stage.append(_construct_git_pull(repo, submodules=sm, branch=branch))
+            except KeyError:
+                print(f'Failed to pull {repo} due to invalid name')
+    return stage
+
+
+def prep(args: argparse.Namespace) -> deploymap:
+    deploymentmap: deploymap = {
+        'servers': [],
+        'doworld': args.world,
+        'loginfo': {},
+        'branch': '',
+        'nolog': args.nolog,
+        'force': args.force,
+        'port': args.port,
+        'ignoretime': args.ignoretime,
+        'debugurl': '',
+        'commands': {
+            'stage': [],
+            'rsync': [],
+            'postinstall': [],
+            'rebuild': [],
+        },
+        'remote': {
+            'paths': [],
+            'files': [],
+        },
+    }
     envinfo = get_environment_info()
-    servers = get_server_list(envinfo, args.servers)
+    deploymentmap['debugurl'] = envinfo['wikiurl']
+    deploymentmap['servers'] = get_server_list(envinfo, args.servers)
     options = {'config': args.config, 'world': args.world, 'landing': args.landing, 'errorpages': args.errorpages}
-    exitcodes: list[int] = []
     loginfo = {}
-    rsyncpaths = []
-    rsyncfiles = []
-    rsync = []
-    rebuild = []
-    postinstall = []
-    stage = []
     for arg in vars(args).items():
         if arg[1] is not None and arg[1] is not False:
             loginfo[arg[0]] = arg[1]
-    synced = loginfo['servers']
-    if HOSTNAME in servers:
-        del loginfo['servers']
-        text = f'starting deploy of "{str(loginfo)}" to {synced}'
-        if not args.nolog:
+    deploymentmap['loginfo'] = loginfo
+    deploymentmap['servers'] = loginfo['servers']
+    deploymentmap['commands']['stage'] = _get_git_commands(args.world, args.pull, args.branch)
+    for option in options:  # configure rsync & custom data for repos
+        if options[option]:
+            if option == 'world':  # install steps for w
+                deploymentmap['commands']['rebuild'].append(WikiCommand('MW_INSTALL_PATH=/srv/mediawiki-staging/w php /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php', envinfo['wikidbname']))
+                deploymentmap['remote']['paths'].append('/srv/mediawiki/cache/gitinfo/')
+            deploymentmap['commands']['rsync'].append(_construct_rsync_command(time=args.ignoretime, location=f'{_get_staging_path(option)}*', dest=_get_deployed_path(option)))
+            deploymentmap['remote']['paths'].append(_get_deployed_path(option))
+    if args.files:  # specfic extra files
+        files = str(args.files).split(',')
+        for file in files:
+            deploymentmap['commands']['rsync'].append(_construct_rsync_command(time=args.ignoretime, recursive=False, location=f'/srv/mediawiki-staging/{file}', dest=f'/srv/mediawiki/{file}'))
+            deploymentmap['remote']['files'].append(f'/srv/mediawiki/{file}')
+    if args.folders:  # specfic extra folders
+        folders = str(args.folders).split(',')
+        for folder in folders:
+            deploymentmap['commands']['rsync'].append(_construct_rsync_command(time=args.ignoretime, location=f'/srv/mediawiki-staging/{folder}/*', dest=f'/srv/mediawiki/{folder}/'))
+            deploymentmap['remote']['paths'].append(f'/srv/mediawiki/{folder}/')
+
+    if args.extensionlist:  # when adding skins/exts
+        deploymentmap['commands']['rebuild'].append(WikiCommand('/srv/mediawiki/w/extensions/CreateWiki/maintenance/rebuildExtensionListCache.php', envinfo['wikidbname']))
+        deploymentmap['remote']['files'].append('/srv/mediawiki/cache/extension-list.json')
+
+    # These need to be setup late because dodgy
+    if args.l10n:  # setup l10n
+        deploymentmap['commands']['postinstall'].append(WikiCommand('/srv/mediawiki/w/maintenance/mergeMessageFileList.php --quiet --output /srv/mediawiki/config/ExtensionMessageFiles.php', envinfo['wikidbname']))
+        deploymentmap['commands']['rebuild'].append(_construct_l10n_command(args.lang, envinfo['wikidbname']))
+        deploymentmap['remote']['paths'].append('/srv/mediawiki/cache/l10n/')
+    return deploymentmap
+
+
+def run(deploymentmap: deploymap, start: float) -> int:
+    exitcodes: list[int] = []
+    info = deploymentmap['loginfo']
+    del deploymentmap['loginfo']['servers']
+    if HOSTNAME in deploymentmap['servers']:
+        del deploymentmap['loginfo']['servers']
+        text = f'starting deploy of {info} to {deploymentmap["servers"]}'
+        if not deploymentmap['nolog']:
             os.system(f'/usr/local/bin/logsalmsg {text}')
         else:
             print(text)
-        pull = []
-        if args.world and not args.pull:
-            pull = ['world']
-        if args.pull:
-            pull = str(args.pull).split(',')
-        if args.world and 'world' not in pull:
-            pull.append('world')
-        if pull:
-            for repo in pull:
-                if repo == 'world':
-                    sm = True
-                else:
-                    sm = False
-                try:
-                    stage.append(_construct_git_pull(repo, submodules=sm))
-                except KeyError:
-                    print(f'Failed to pull {repo} due to invalid name')
-
         # setup env, git pull etc
-        exitcodes = run_batch_command(stage, 'staging', exitcodes)
-        non_zero_code(exitcodes, nolog=args.nolog)
-        for option in options:  # configure rsync & custom data for repos
-            if options[option]:
-                if option == 'world':  # install steps for w
-                    os.chdir(_get_staging_path('world'))
-                    exitcodes.append(run_command(f'sudo -u {DEPLOYUSER} composer install --no-dev --quiet'))
-                    rebuild.append(f'sudo -u {DEPLOYUSER} php /srv/mediawiki/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --wiki={envinfo["wikidbname"]}')
-                    rsyncpaths.append('/srv/mediawiki/cache/gitinfo/')
-                rsync.append(_construct_rsync_command(time=args.ignoretime, location=f'{_get_staging_path(option)}*', dest=_get_deployed_path(option)))
-        non_zero_code(exitcodes, nolog=args.nolog)
-        if args.files:  # specfic extra files
-            files = str(args.files).split(',')
-            for file in files:
-                rsync.append(_construct_rsync_command(time=args.ignoretime, recursive=False, location=f'/srv/mediawiki-staging/{file}', dest=f'/srv/mediawiki/{file}'))
-        if args.folders:  # specfic extra folders
-            folders = str(args.folders).split(',')
-            for folder in folders:
-                rsync.append(_construct_rsync_command(time=args.ignoretime, location=f'/srv/mediawiki-staging/{folder}/*', dest=f'/srv/mediawiki/{folder}/'))
-
-        if args.extensionlist:  # when adding skins/exts
-            rebuild.append(f'sudo -u www-data php /srv/mediawiki/w/extensions/CreateWiki/maintenance/rebuildExtensionListCache.php --wiki={envinfo["wikidbname"]}')
-
-        # move staged content to live
-        exitcodes = run_batch_command(rsync, 'rsync', exitcodes)
-        non_zero_code(exitcodes)
-        # These need to be setup late because dodgy
-        if args.l10nupdate:  # used by automated maint
-            run_command(f'sudo -u www-data ionice -c idle /usr/bin/nice -n 15 /usr/bin/php /srv/mediawiki/w/extensions/LocalisationUpdate/update.php --quiet --wiki={envinfo["wikidbname"]}')  # gives garbage errors
-            args.l10n = True  # imply --l10n
-        if args.l10n:  # setup l10n
-            postinstall.append(f'sudo -u www-data php /srv/mediawiki/w/maintenance/mergeMessageFileList.php --quiet --wiki={envinfo["wikidbname"]} --output /srv/mediawiki/config/ExtensionMessageFiles.php')
-            rebuild.append(f'sudo -u www-data php /srv/mediawiki/w/maintenance/rebuildLocalisationCache.php --quiet --wiki={envinfo["wikidbname"]}')
-
+        exitcodes = run_batch_command(deploymentmap['commands']['stage'], 'staging', exitcodes)
+        if deploymentmap['doworld']:
+            os.chdir(_get_staging_path('world'))
+            exitcodes.append(run_command(f'sudo -u {DEPLOYUSER} http_proxy=http://bast.miraheze.org:8080 composer install --no-dev --quiet'))
+        non_zero_code(exitcodes, nolog=deploymentmap['nolog'], leave=(not deploymentmap['force']))
+        exitcodes = run_batch_command(deploymentmap['commands']['rsync'], 'rsync', exitcodes)
+        non_zero_code(exitcodes, nolog=deploymentmap['nolog'], leave=(not deploymentmap['force']))
         # cmds to run after rsync & install (like mergemessage)
-        exitcodes = run_batch_command(postinstall, 'post-install', exitcodes)
-        non_zero_code(exitcodes, nolog=args.nolog)
+        exitcodes = run_batch_command(deploymentmap['commands']['postinstall'], 'post-install', exitcodes)
+        non_zero_code(exitcodes, nolog=deploymentmap['nolog'], leave=(not deploymentmap['force']))
         # update ext list + l10n
-        exitcodes = run_batch_command(rebuild, 'rebuild', exitcodes)
-        non_zero_code(exitcodes, nolog=args.nolog)
-
-        # see if we are online - exit code 3 if not
-        check_up(Debug=None, Host=envinfo['wikiurl'], verify=False, force=args.force, nolog=args.nolog)  # type: ignore
-
-    # actually set remote lists
-    for option in options:
-        if options[option]:
-            rsyncpaths.append(_get_deployed_path(option))
-    if args.files:
-        for file in str(args.files).split(','):
-            rsyncfiles.append(f'/srv/mediawiki/{file}')
-    if args.folders:
-        for folder in str(args.folders).split(','):
-            rsyncfiles.append(f'/srv/mediawiki/{folder}/')
-    if args.extensionlist:
-        rsyncfiles.append('/srv/mediawiki/cache/extension-list.json')
-    if args.l10n:
-        rsyncpaths.append('/srv/mediawiki/cache/l10n/')
-
-    for path in rsyncpaths:
-        exitcodes = remote_sync_file(time=args.ignoretime, serverlist=servers, path=path, exitcodes=exitcodes)
-    for file in rsyncfiles:
-        exitcodes = remote_sync_file(time=args.ignoretime, serverlist=servers, path=file, exitcodes=exitcodes, recursive=False)
-
-    fintext = f'finished deploy of "{str(loginfo)}" to {synced}'
+        exitcodes = run_batch_command(deploymentmap['commands']['rebuild'], 'rebuild', exitcodes)
+        non_zero_code(exitcodes, nolog=deploymentmap['nolog'], leave=(not deploymentmap['force']))
+    for path in deploymentmap['remote']['paths']:
+        exitcodes = remote_sync_file(time=deploymentmap['ignoretime'], serverlist=deploymentmap['servers'], path=path, exitcodes=exitcodes)
+    for file in deploymentmap['remote']['files']:
+        exitcodes = remote_sync_file(time=deploymentmap['ignoretime'], serverlist=deploymentmap['servers'], path=file, exitcodes=exitcodes, recursive=False)
+    fintext = f'finished deploy of {info} to {deploymentmap["servers"]}'
 
     failed = non_zero_code(ec=exitcodes, leave=False)
+    # see if we are online - exit code 3 if not
+    if deploymentmap['port']:
+        check_up(Debug=None, Host=deploymentmap['debugurl'], verify=False, force=deploymentmap['force'], nolog=deploymentmap['nolog'], port=deploymentmap['port'])
+    else:
+        check_up(Debug=None, Host=deploymentmap['debugurl'], verify=False, force=deploymentmap['force'], nolog=deploymentmap['nolog'])
     if failed:
         fintext += f' - FAIL: {exitcodes}'
     else:
         fintext += ' - SUCCESS'
     fintext += f' in {str(int(time.time() - start))}s'
-    if not args.nolog:
+    if not deploymentmap['nolog']:
         os.system(f'/usr/local/bin/logsalmsg {fintext}')
     else:
         print(fintext)
     if failed:
-        exit(1)
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
     start = time.time()
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--pull', dest='pull')
+    parser.add_argument('--branch', dest='branch')
     parser.add_argument('--config', dest='config', action='store_true')
     parser.add_argument('--world', dest='world', action='store_true')
     parser.add_argument('--landing', dest='landing', action='store_true')
     parser.add_argument('--errorpages', dest='errorpages', action='store_true')
-    parser.add_argument('--l10nupdate', dest='l10nupdate', action='store_true')
     parser.add_argument('--l10n', dest='l10n', action='store_true')
     parser.add_argument('--extension-list', dest='extensionlist', action='store_true')
     parser.add_argument('--no-log', dest='nolog', action='store_true')
     parser.add_argument('--force', dest='force', action='store_true')
     parser.add_argument('--files', dest='files')
     parser.add_argument('--folders', dest='folders')
+    parser.add_argument('--lang', dest='lang')
     parser.add_argument('--servers', dest='servers', required=True)
     parser.add_argument('--ignore-time', dest='ignoretime', action='store_true')
+    parser.add_argument('--port', dest='port')
 
-    run(parser.parse_args(), start)
+    exit(run(prep(parser.parse_args()), start))
