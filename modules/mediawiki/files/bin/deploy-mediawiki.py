@@ -405,7 +405,7 @@ if __name__ == '__main__':
     parser.add_argument('--port', dest='port')
     parser.add_argument('--noop', dest='noop', action='store_true')
 
-    args = parser.parse_args
+    args = parser.parse_args()
     deployment_map = prep(args)
     if args.noop:
         pp = pprint.PrettyPrinter(depth=4)
