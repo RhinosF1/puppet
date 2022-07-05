@@ -294,6 +294,7 @@ def prep(args: argparse.Namespace) -> deploymap:
         'remote': {
             'paths': [],
             'files': [],
+            'commands': [],
         },
     }
     envinfo = get_environment_info()
@@ -301,8 +302,8 @@ def prep(args: argparse.Namespace) -> deploymap:
     deploymentmap['servers'] = get_server_list(envinfo, args.servers)
     options = {'config': args.config, 'world': args.world, 'landing': args.landing, 'errorpages': args.errorpages}
     loginfo = {}
-    file_commands = []
-    path_commands = []
+    file_commands: list[str] = []
+    path_commands: list[str] = []
     for arg in vars(args).items():
         if arg[1] is not None and arg[1] is not False:
             loginfo[arg[0]] = arg[1]
