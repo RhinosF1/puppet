@@ -337,7 +337,7 @@ def test_prep_world_extlist() -> None:
             'commands': [
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/gitinfo/ www-data@mw101.miraheze.org:/srv/mediawiki/cache/gitinfo/',
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/w/ www-data@mw101.miraheze.org:/srv/mediawiki/w/',
-                'sudo -u www-data rsync --update -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/extension-list.json www-data@mw101.miraheze.org:/srv/mediawiki/cache/extension-list.json'
+                'sudo -u www-data rsync --update -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/extension-list.json www-data@mw101.miraheze.org:/srv/mediawiki/cache/extension-list.json',
             ],
         },
         'servers': ['mw101'],
@@ -407,7 +407,7 @@ def test_prep_file_test() -> None:
             'files': ['/srv/mediawiki/test.txt'],
             'paths': [],
             'commands': [
-                'sudo -u www-data rsync --update -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/test.txt www-data@mw101.miraheze.org:/srv/mediawiki/test.txt'
+                'sudo -u www-data rsync --update -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/test.txt www-data@mw101.miraheze.org:/srv/mediawiki/test.txt',
             ],
         },
         'servers': ['mw101'],
@@ -454,7 +454,7 @@ def test_prep_world_l10n() -> None:
             'commands': [
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/gitinfo/ www-data@mw101.miraheze.org:/srv/mediawiki/cache/gitinfo/',
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/w/ www-data@mw101.miraheze.org:/srv/mediawiki/w/',
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/l10n/ www-data@mw101.miraheze.org:/srv/mediawiki/cache/l10n/'
+                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/l10n/ www-data@mw101.miraheze.org:/srv/mediawiki/cache/l10n/',
             ],
         },
         'servers': ['mw101'],
