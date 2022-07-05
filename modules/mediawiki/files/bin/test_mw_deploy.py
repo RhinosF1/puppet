@@ -166,7 +166,7 @@ def test_get_envinfo() -> None:
 
 
 def test_get_servers_all() -> None:
-    assert mwd.get_server_list(mwd.get_environment_info(), 'all') == [
+    assert mwd.get_server_list(mwd.get_environment_info()['servers'], 'all') == [
         'mw101',
         'mw102',
         'mw111',
@@ -178,7 +178,7 @@ def test_get_servers_all() -> None:
 
 
 def test_get_servers_two() -> None:
-    assert mwd.get_server_list(mwd.get_environment_info(), 'mw101,mw111') == ['mw101', 'mw111']
+    assert mwd.get_server_list(mwd.get_environment_info()['servers'], 'mw101,mw111') == ['mw101', 'mw111']
 
 
 def test_run() -> None:
