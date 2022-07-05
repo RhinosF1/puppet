@@ -196,7 +196,6 @@ def remote_sync_file_prep(time: bool, serverlist: list[str], path: str, recursiv
     sync_cmds = []
     for server in serverlist:
         if HOSTNAME != server.split('.')[0]:
-            print(f'Scheduling {path} for {server}.')
             sync_cmds.append(_construct_rsync_command(time=time, local=False, dest=path, server=server, recursive=recursive))
         else:
             continue
