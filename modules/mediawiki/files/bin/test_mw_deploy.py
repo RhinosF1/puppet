@@ -205,6 +205,29 @@ def test_prep() -> None:
     assert mwd.prep(args) == {'servers': ['mw101', 'mw102', 'mw111', 'mw112', 'mw121', 'mw122', 'mwtask111'], 'doworld': False, 'loginfo': {'servers': 'all', 'files': '', 'folders': '', 'nolog': True, 'port': 443}, 'branch': '', 'nolog': True, 'force': False, 'port': 443, 'ignoretime': False, 'debugurl': 'publictestwiki.com', 'commands': {'stage': [], 'rsync': [], 'postinstall': [], 'rebuild': []}, 'remote': {'paths': [], 'files': []}}
 
 
+def test_prep() -> None:
+    parser = argparse.ArgumentParser()
+    args, unknown = parser.parse_known_args()
+    del unknown
+    args.servers = 'None'
+    args.config = False
+    args.world = False
+    args.landing = False
+    args.errorpages = False
+    args.files = ''
+    args.folders = ''
+    args.extensionlist = False
+    args.l10n = False
+    args.nolog = True
+    args.force = False
+    args.port = 443
+    args.ignoretime = False
+    args.pull = False
+    args.branch = False
+    assert mwd.prep(args) == {'servers': 'None', 'doworld': False, 'loginfo': {'servers': 'None', 'files': '', 'folders': '', 'nolog': True, 'port': 443}, 'branch': '', 'nolog': True, 'force': False, 'port': 443, 'ignoretime': False, 'debugurl': 'publictestwiki.com', 'commands': {'stage': [], 'rsync': [], 'postinstall': [], 'rebuild': []}, 'remote': {'paths': [], 'files': []}}
+
+
+
 def test_prep_single_server() -> None:
     parser = argparse.ArgumentParser()
     args, unknown = parser.parse_known_args()
