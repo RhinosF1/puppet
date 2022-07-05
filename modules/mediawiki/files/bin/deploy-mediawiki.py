@@ -339,8 +339,8 @@ def prep(args: argparse.Namespace) -> deploymap:
         path_commands = [*path_commands, *remote_sync_file_prep(time=deploymentmap['ignoretime'], serverlist=deploymentmap['servers'], path=path)]
     for file in deploymentmap['remote']['files']:
         file_commands = [*file_commands, *remote_sync_file_prep(time=deploymentmap['ignoretime'], serverlist=deploymentmap['servers'], path=file, recursive=False)]
-    deploymentmap['remote']['commands'] = [*path_commands, *file_commands]  
-    
+    deploymentmap['remote']['commands'] = [*path_commands, *file_commands]
+
     return deploymentmap
 
 
