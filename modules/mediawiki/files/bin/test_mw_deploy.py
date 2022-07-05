@@ -253,7 +253,7 @@ def test_prep_world() -> None:
         'remote': {
             'files': [],
             'paths': ['/srv/mediawiki/cache/gitinfo/', '/srv/mediawiki/w/'],
-            'commands':  [
+            'commands': [
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/gitinfo/ www-data@mw101.miraheze.org:/srv/mediawiki/cache/gitinfo/',
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/w/ www-data@mw101.miraheze.org:/srv/mediawiki/w/',
             ],
@@ -289,7 +289,7 @@ def test_prep_landing() -> None:
         'remote': {
             'files': [],
             'paths': ['/srv/mediawiki/landing/'],
-            'commands':  [
+            'commands': [
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/landing/ www-data@mw101.miraheze.org:/srv/mediawiki/landing/',
             ],
         },
@@ -334,7 +334,7 @@ def test_prep_world_extlist() -> None:
         'remote': {
             'files': ['/srv/mediawiki/cache/extension-list.json'],
             'paths': ['/srv/mediawiki/cache/gitinfo/', '/srv/mediawiki/w/'],
-            'commands':  [
+            'commands': [
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/gitinfo/ www-data@mw101.miraheze.org:/srv/mediawiki/cache/gitinfo/',
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/w/ www-data@mw101.miraheze.org:/srv/mediawiki/w/',
                 'sudo -u www-data rsync --update -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/extension-list.json www-data@mw101.miraheze.org:/srv/mediawiki/cache/extension-list.json'
@@ -371,7 +371,7 @@ def test_prep_folder_test() -> None:
         'remote': {
             'files': [],
             'paths': ['/srv/mediawiki/test/'],
-            'commands':  [
+            'commands': [
                 'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/test/ www-data@mw101.miraheze.org:/srv/mediawiki/test/',
             ],
         },
