@@ -318,7 +318,7 @@ def test_prep_world() -> None:
             'postinstall': [],
             'rebuild': [
                 mwd.WikiCommand(
-                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w php /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
+                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
                     wiki='testwiki',
                 ),
             ],
@@ -427,7 +427,7 @@ def test_prep_world_extlist() -> None:
             'postinstall': [],
             'rebuild': [
                 mwd.WikiCommand(
-                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w php /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
+                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
                     wiki='testwiki',
                 ),
                 mwd.WikiCommand(command='/srv/mediawiki/w/extensions/CreateWiki/maintenance/rebuildExtensionListCache.php', wiki='testwiki'),
@@ -588,7 +588,7 @@ def test_prep_world_l10n() -> None:
             'postinstall': [mwd.WikiCommand(command='/srv/mediawiki/w/maintenance/mergeMessageFileList.php --quiet --output /srv/mediawiki/config/ExtensionMessageFiles.php', wiki='testwiki')],
             'rebuild': [
                 mwd.WikiCommand(
-                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w php /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
+                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
                     wiki='testwiki',
                 ),
                 mwd.WikiCommand(command='/srv/mediawiki/w/maintenance/rebuildLocalisationCache.php --quiet', wiki='testwiki'),
