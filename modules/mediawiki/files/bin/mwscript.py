@@ -18,7 +18,7 @@ def run(args: argparse.Namespace) -> None:
         scriptsplit = script.split('/')
         script = f'/srv/mediawiki/w/{scriptsplit[0]}/{scriptsplit[1]}/maintenance/{scriptsplit[2]}'
         long = (scriptsplit[2] in longscripts)
-    
+
     validDBLists = ('active', 'beta')
 
     if args.arguments[0].endswith('wiki') or args.arguments in [*'all', *validDBLists]:
@@ -45,7 +45,7 @@ def run(args: argparse.Namespace) -> None:
         command = f'sudo -u www-data php {script} --wiki={wiki}'
     if args.arguments:
         command += ' ' + ' '.join(args.arguments)
-    
+
     logcommand = f'/usr/local/bin/logsalmsg "{command}'
     print('Will execute:')
     if 'generate' in locals():
