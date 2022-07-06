@@ -29,10 +29,20 @@ jobs:
           sudo apt-get install -y libgnutls28-dev
           pip install -U pip wheel
           pip install -r .github/pythonchecks.txt
-      - name: Run tests
+      - name: Build Package Version
         run: |
-          flake8 modules/mediawiki modules/ssl modules/monitoring --enable-extensions=TC,TC1 --ignore=E501,W503,SFS301 --max-complexity 14
-          mypy modules/mediawiki modules/ssl modules/monitoring --ignore-missing-imports
-          coverage run --branch -m pytest modules/mediawiki
-          coverage report --fail-under=70
-          vermin -v --eval-annotations --backport argparse --backport importlib --backport ipaddress --backport typing --backport dataclasses --no-parse-comments . 
+          pip uninstall requests filelock -y
+          sudo apt install -y python3-requests python3-filelock
+          sudo apt install -y python3-apt apt-file dpkg-dev fakeroot build-essential devscripts debhelper
+          sudo apt-file update
+          pip install build wheel2deb
+          cd modules/mediawiki/files/bin
+          pyproject-build --wheel --outdir dist .
+          cd dist
+          pip wheel MW_SRE_Utils-3.0-py3-none-any.whl
+          wheel2deb
+          wheel2deb build
+          ls -l output/*.deb
+          dpkg -i output/*.deb
+
+
