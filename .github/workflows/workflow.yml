@@ -29,12 +29,6 @@ jobs:
           sudo apt-get install -y libgnutls28-dev
           pip install -U pip wheel
           pip install -r .github/pythonchecks.txt
-      - name: Run tests
-        run: |
-          mypy modules/mediawiki modules/ssl modules/monitoring --ignore-missing-imports
-          coverage run --branch -m pytest modules/mediawiki
-          coverage report --fail-under=70
-          vermin -v --eval-annotations --backport argparse --backport importlib --backport ipaddress --backport typing --backport dataclasses --no-parse-comments .
       - name: Build Package Version
         run: |
           pip uninstall requests filelock -y
