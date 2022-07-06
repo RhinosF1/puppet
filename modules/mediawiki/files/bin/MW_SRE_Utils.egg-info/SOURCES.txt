@@ -1,0 +1,14 @@
+setup.cfg
+setup.py
+MW_SRE_Utils.egg-info/PKG-INFO
+MW_SRE_Utils.egg-info/SOURCES.txt
+MW_SRE_Utils.egg-info/dependency_links.txt
+MW_SRE_Utils.egg-info/entry_points.txt
+MW_SRE_Utils.egg-info/requires.txt
+MW_SRE_Utils.egg-info/top_level.txt
+mwsreutils/__init__.py
+mwsreutils/mwdeploy.py
+mwsreutils/mwscript.py
+tests/__init__.py
+tests/test_mw_deploy.py
+tests/test_mwscript.py

@@ -1,0 +1,3 @@
+[console_scripts]
+deploy-mediawiki = mwsreutils.mwdeploy:cli
+mwscript = mwsreutils.mwscript:cli

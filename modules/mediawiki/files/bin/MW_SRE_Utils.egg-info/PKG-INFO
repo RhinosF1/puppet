@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: MW-SRE-Utils
+Version: 3.0
+Summary: MediaWiki SRE Utility Scripts
+Home-page: https://github.com/miraheze/puppet
+Author: MediaWiki SRE - Miraheze
+Author-email: root@root.root
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.9
