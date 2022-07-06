@@ -34,6 +34,7 @@ jobs:
           pip uninstall requests filelock -y
           sudo apt-get install -y python3-requests python3-filelock
           pip install build wheel2deb
+          cd modules/mediawiki/files/bin
           pyproject-build --wheel --outdir dist .
           cd dist
           pip wheel MW_SRE_Utils-3.0-py3-none-any.whl
