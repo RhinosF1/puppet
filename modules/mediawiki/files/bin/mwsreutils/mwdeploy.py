@@ -416,7 +416,7 @@ def get_parsed_args():
     return args
 
 
-if __name__ == '__main__':  # pragma: no cover
+def cli():
     start = time.time()
 
     args = get_parsed_args()
@@ -426,3 +426,7 @@ if __name__ == '__main__':  # pragma: no cover
         pp.pprint(deployment_map)
         exit(0)
     exit(run(deployment_map, start))
+
+
+if __name__ == '__main__':  # pragma: no cover
+    cli()

@@ -99,6 +99,10 @@ def get_args() -> argparse.Namespace:
     return args
 
 
+def cli():
+    run(get_commands(get_args()))
+
+
 if __name__ == '__main__':  # pragma: no cover
 
-    run(get_commands(get_args()))
+   cli()
