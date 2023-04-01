@@ -1,11 +1,11 @@
 # class: varnish
 class varnish (
     String $cache_file_name = '/srv/varnish/cache_storage.bin',
-    String $cache_file_size = '15G',
+    String $cache_file_size = '22G',
 ) {
     include varnish::nginx
     include varnish::stunnel4
-    include prometheus::varnish_prometheus_exporter
+    include prometheus::exporter::varnish
 
     ensure_packages(['varnish', 'varnish-modules'])
 
@@ -19,27 +19,11 @@ class varnish (
         mode   => '0555',
     }
 
-    # Avoid race condition where varnish starts, before /var/lib/varnish was mounted as tmpfs
-    file { '/var/lib/varnish':
-        ensure  => directory,
-        owner   => 'varnish',
-        group   => 'varnish',
-        require => Package['varnish'],
-    }
-
-    mount { '/var/lib/varnish':
-        ensure  => mounted,
-        device  => 'tmpfs',
-        fstype  => 'tmpfs',
-        options => 'noatime,defaults,size=128M',
-        pass    => 0,
-        dump    => 0,
-        require => File['/var/lib/varnish'],
-        notify  => Service['varnish'],
-    }
-    
     $module_path = get_module_path($module_name)
-    $csp_whitelist = loadyaml("${module_path}/data/csp.yaml")
+    $csp = loadyaml("${module_path}/data/csp.yaml")
+    $backends = lookup('varnish::backends')
+    $interval_check = lookup('varnish::interval-check')
+    $interval_timeout = lookup('varnish::interval-timeout')
 
     file { '/etc/varnish/default.vcl':
         ensure  => present,
@@ -49,22 +33,25 @@ class varnish (
     }
 
     file { '/srv/varnish':
-        ensure  => directory,
-        owner   => 'varnish',
-        group   => 'varnish',
+        ensure => directory,
+        owner  => 'varnish',
+        group  => 'varnish',
     }
 
-    $max_threads = max(floor($::processorcount * 250), 500)
+    # TODO: On bigger memory hosts increase Transient size
+    $storage = "-s file,${cache_file_name},${cache_file_size} -s Transient=malloc,1G"
+
+    # Default is 5000 in varnish
+    $max_threads = max(floor($::processorcount * 250), 5000)
     systemd::service { 'varnish':
-        ensure  => present,
-        content => systemd_template('varnish'),
+        ensure         => present,
+        content        => systemd_template('varnish'),
         service_params => {
             enable  => true,
             require => [
                 Package['varnish'],
                 File['/usr/local/sbin/reload-vcl'],
-                File['/etc/varnish/default.vcl'],
-                Mount['/var/lib/varnish']
+                File['/etc/varnish/default.vcl']
             ],
         }
     }
@@ -83,14 +70,14 @@ class varnish (
 
     # Unfortunately, varnishlog can't log to syslog
     logrotate::conf { 'varnishlog_logs':
-        ensure  => present,
-        source  => 'puppet:///modules/varnish/varnish/varnishlog.logrotate.conf',
+        ensure => present,
+        source => 'puppet:///modules/varnish/varnish/varnishlog.logrotate.conf',
     }
 
     # This mechanism with the touch/rm conditionals in the pair of execs
     #   below should ensure that reload-vcl failures are retried on
     #   future puppet runs until they succeed.
-    $vcl_failed_file = "/var/tmp/reload-vcl-failed"
+    $vcl_failed_file = '/var/tmp/reload-vcl-failed'
 
     exec { 'load-new-vcl-file':
         require     => Service['varnish'],
@@ -132,17 +119,11 @@ class varnish (
         privileges => [ 'ALL = NOPASSWD: /usr/lib/nagios/plugins/check_nginx_errorrate' ],
     }
 
-    monitoring::services { 'Varnish Backends':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_varnishbackends',
-        },
+    monitoring::nrpe { 'Varnish Backends':
+        command => '/usr/bin/sudo /usr/lib/nagios/plugins/check_varnishbackends'
     }
 
-    monitoring::services { 'HTTP 4xx/5xx ERROR Rate':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_nginx_errorrate',
-        },
+    monitoring::nrpe { 'HTTP 4xx/5xx ERROR Rate':
+        command => '/usr/bin/sudo /usr/lib/nagios/plugins/check_nginx_errorrate'
     }
 }

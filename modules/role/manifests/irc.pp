@@ -1,10 +1,15 @@
 # role: irc
 class role::irc {
     include irc::irclogbot
+    include irc::relaybot
 
     class { 'irc::ircrcbot':
         nickname     => 'MirahezeRC',
-        network      => 'irc.libera.chat',
+        # irc.libera.chat ipv6 address; we have to hardcode it.
+        # This is because it's either picking up the ipv4 address
+        # for the hostname or it doesn't support getting the ipv6
+        # address from hostname.
+        network      => '2001:6b0:78::101',
         network_port => '6697',
         channel      => '#miraheze-feed',
         udp_port     => '5070',
@@ -12,7 +17,11 @@ class role::irc {
 
     class { 'irc::irclogserverbot':
         nickname     => 'MirahezeLSBot',
-        network      => 'irc.libera.chat',
+        # irc.libera.chat ipv6 address; we have to hardcode it.
+        # This is because it's either picking up the ipv4 address
+        # for the hostname or it doesn't support getting the ipv6
+        # address from hostname.
+        network      => '2001:6b0:78::101',
         network_port => '6697',
         channel      => '#miraheze-sre',
         udp_port     => '5071',

@@ -9,16 +9,25 @@ class varnish::stunnel4 {
         require => Package['stunnel4'],
     }
 
+    $backends = lookup('varnish::backends')
+
     file { '/etc/stunnel/mediawiki.conf':
         ensure  => present,
-        source  => 'puppet:///modules/varnish/stunnel/stunnel.conf',
+        content => template('varnish/stunnel.conf'),
         notify  => Service['stunnel4'],
         require => Package['stunnel4'],
     }
 
-    service { 'stunnel4':
-        ensure  => 'running',
-        require => Package['stunnel4'],
+    systemd::service { 'stunnel4':
+        ensure         => present,
+        content        => systemd_template('stunnel4'),
+        service_params => {
+            enable  => true,
+            require => [
+                Package['stunnel4'],
+                File['/etc/stunnel/mediawiki.conf'],
+            ],
+        }
     }
 
     logrotate::conf { 'stunnel4':
@@ -26,13 +35,9 @@ class varnish::stunnel4 {
         source => 'puppet:///modules/varnish/stunnel/stunnel4.logrotate.conf',
     }
 
-    ['mon2', 'mw8', 'mw9', 'mw10', 'mw11', 'mw12', 'mw13'].each |$host| {
-        monitoring::services { "Stunnel Http for ${host}":
-            check_command => 'nrpe',
-            vars          => {
-                nrpe_command => "check_stunnel_${host}",
-                nrpe_timeout => '10s',
-            },
+    $backends.each | $name, $property | {
+        monitoring::nrpe { "Stunnel for ${name}":
+            command => "/usr/lib/nagios/plugins/check_tcp -H localhost -p ${property['port']}",
         }
     }
 }

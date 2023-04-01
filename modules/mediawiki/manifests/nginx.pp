@@ -1,6 +1,7 @@
-# MediaWiki nginx config using hiera
+# === Class mediawiki::nginx
+#
+# Nginx config using hiera
 class mediawiki::nginx {
-
     $sslcerts = loadyaml('/etc/puppetlabs/puppet/ssl-cert/certs.yaml')
     $php_fpm_sock = 'php/fpm-www.sock'
 
@@ -15,6 +16,7 @@ class mediawiki::nginx {
         require => Nginx::Conf['mediawiki-includes'],
     }
 
-    include ssl::wildcard
+    ssl::wildcard { 'mediawiki nginx wildcard': }
+
     include ssl::hiera
 }

@@ -1,8 +1,9 @@
 # Only add a domain pursuant to the policy below. Please also be restrictive in which list.
-# See https://meta.miraheze.org/wiki/Tech:CSP_Whitelist_Policy.
+# See https://meta.miraheze.org/wiki/Tech:CSP_Policy.
 default-src: 
   - "'self'"
   - '*.miraheze.org'
+  - '*.betaheze.org'
 
 script-src:
   - 'blob:'
@@ -10,6 +11,7 @@ script-src:
   - "'unsafe-inline'"
   - "'unsafe-eval'"
   - '*.miraheze.org'
+  - '*.betaheze.org'
   - '*.wikimedia.org'
   - '*.wikipedia.org'
   - '*.wikibooks.org'
@@ -20,25 +22,29 @@ script-src:
   - '*.wikinews.org'
   - '*.wikivoyage.org'
   - 'mediawiki.org'
+  - 'www.mediawiki.org'
   - 'wikidata.org'
   - 'www.gstatic.com'
-  - 's7.addthis.com'
   - 'www.google.com'
-  - 'www.recaptcha.net'
   - 'platform.twitter.com'
-  - 'js-wiki-cdn.reviservices.com'
-  - 'wikiplus-app.com'
+  - 'wiki-assets.sumin.wiki'
   - 'cdnjs.cloudflare.com'
   - 'cdn.jsdelivr.net'
+  - 'fastly.jsdelivr.net'
   - 'cdn.syndication.twimg.com'
   - 'scratchblocks.github.io'
   - 'openlayers.org'
+  - 'phab.miraheze.wiki'
+  - 'www.gstatic.cn'
+  - 'hcaptcha.com'
+  - '*.hcaptcha.com'
 
 style-src:
   - "'self'"
   - 'data:'
   - "'unsafe-inline'"
   - '*.miraheze.org'
+  - '*.betaheze.org'
   - '*.wikimedia.org'
   - '*.wikipedia.org'
   - '*.wikibooks.org'
@@ -49,18 +55,26 @@ style-src:
   - '*.wikinews.org'
   - '*.wikivoyage.org'
   - 'mediawiki.org'
+  - 'www.mediawiki.org'
   - 'wikidata.org'
   - 'www.gstatic.com'
   - 'fonts.googleapis.com'
   - 'cdn.jsdelivr.net'
+  - 'fastly.jsdelivr.net'
   - 'platform.twitter.com'
   - 'ton.twimg.com'
+  - 'phab.miraheze.wiki'
+  - 'hcaptcha.com'
+  - '*.hcaptcha.com'
 
 img-src:
+  - 'blob:'
   - "'self'"
   - 'data:'
   - '*.miraheze.org'
+  - '*.betaheze.org'
   - 'upload.wikimedia.org'
+  - 'wikimedia.org'
   - 'maps.google.com'
   - 'www.gstatic.com'
   - 'maxcdn.bootstrapcdn.com'
@@ -80,15 +94,12 @@ img-src:
   - 'scratchblocks.github.io'
   - 'docs.blender.org'
   - '*.imgbox.com'
-  - 'www.mikrodev.com'
   - 'tile.openstreetmap.org'
   - '*.tile.openstreetmap.org'
   - 'cdn.discordapp.com'
   - 'na.llnet.sims3storee.cdn.ea.com'
   - '*.fastly.net'
   - 'minotar.net'
-  - 'img.shields.io'
-  - 'mc-uc.netease.com'
   - 'db.onlinewebfonts.com'
   - 'openlayers.org'
   - 'discordapp.com'
@@ -99,19 +110,37 @@ img-src:
   - 'img.newspapers.com'
   - 'cdn.smutstone.com'
   - 'storage.googleapis.com'
+  - 'phab.miraheze.wiki'
+  - '*.fbcdn.net'
+  - 'i.ytimg.com'
+  - '*.imgbb.com'
+  - 'simgbb.com'
+  - '*.simgbb.com'
+  - 'ibb.co'
+  - '*.ibb.co'
+  - '*.postimages.org'
+  - 'postimgs.org'
+  - '*.postimgs.org'
+  - 'postimg.cc'
+  - '*.postimg.cc'
 
 font-src:
   - "'self'"
   - 'data:'
   - '*.miraheze.org'
+  - '*.betaheze.org'
   - 'fonts.gstatic.com'
   - 'cdn.jsdelivr.net'
+  - 'fastly.jsdelivr.net'
   - 'db.onlinewebfonts.com'
+  - 'phab.miraheze.wiki'
+  - 'upload.wikimedia.org'
 
 media-src:
   - "'self'"
   - 'blob:'
   - '*.miraheze.org'
+  - '*.betaheze.org'
   - 'upload.wikimedia.org'
   - 'embed.nicovideo.jp'
   - '*.youtube.com'
@@ -123,9 +152,9 @@ media-src:
 frame-src:
   - "'self'"
   - '*.miraheze.org'
+  - '*.betaheze.org'
   - 'www.google.com'
   - 'docs.google.com'
-  - 'www.recaptcha.net'
   - 'web.libera.chat'
   - 'snap.berkeley.edu'
   - '*.youtube-nocookie.com'
@@ -142,10 +171,16 @@ frame-src:
   - 'w.soundcloud.com'
   - 'query.wikidata.org'
   - 'player.vimeo.com'
+  - 'www.bing.com'
+  - 'lucid.app'
+  - 'scratch.mit.edu'
+  - 'hcaptcha.com'
+  - '*.hcaptcha.com'
 
 connect-src:
   - "'self'"
   - '*.miraheze.org'
+  - '*.betaheze.org'
   - 'www.wikidata.org'
   - '*.wikipedia.org'
   - 'www.mediawiki.org'
@@ -154,3 +189,6 @@ connect-src:
   - '*.wiktionary.org'
   - 'cdn.jsdelivr.net'
   - 'storage.googleapis.com'
+  - '*.youtube-nocookie.com'
+  - 'hcaptcha.com'
+  - '*.hcaptcha.com'

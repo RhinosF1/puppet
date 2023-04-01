@@ -4,7 +4,7 @@
 #
 # === Parameters
 #
-# [*puppetdb_hostname*] The hostname for the puppetdb server, eg puppet3.miraheze.org
+# [*puppetdb_hostname*] The hostname for the puppetdb server, eg puppet141.miraheze.org
 #
 class puppetserver::puppetdb::client(
     String $puppetdb_hostname,
@@ -39,19 +39,15 @@ class puppetserver::puppetdb::client(
 
     class { 'puppetdb': }
 
-    puppetserver::logging { 'puppetdb':
-        file_path           => '/etc/puppetlabs/puppetdb/logback.xml',
-        file_source         => 'puppet:///modules/puppetserver/puppetdb_logback.xml',
-        file_source_options => [
-            '/var/log/puppetlabs/puppetdb/puppetdb.log.json',
-            { 'flags' => 'no-parse' }
-        ],
-        program_name        => 'puppetdb',
-        notify              => Service['puppetdb'],
+    file { '/etc/puppetlabs/puppetdb/logback.xml':
+        ensure => present,
+        source => 'puppet:///modules/puppetserver/puppetdb_logback.xml',
+        notify => Service['puppetdb'],
     }
 
-    logrotate::conf { 'puppetdb':
-        ensure => present,
-        source => 'puppet:///modules/puppetserver/puppetdb.logrotate.conf',
+    rsyslog::input::file { 'puppetdb':
+        path              => '/var/log/puppetlabs/puppetdb/puppetdb.log.json',
+        syslog_tag_prefix => '',
+        use_udp           => true,
     }
 }

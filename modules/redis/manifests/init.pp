@@ -1,14 +1,12 @@
 # class: redis
 class redis (
-    Integer$port = 6379,
+    Boolean $persist = true,
+    Integer $port = 6379,
     String $maxmemory = '512mb',
     String $maxmemory_policy = 'allkeys-lru',
     Integer $maxmemory_samples = 5,
     Variant[Boolean, String] $password = false,
 ) {
-
-    $jobrunner = lookup('jobrunner', {'default_value' => false})
-
     package { 'redis-server':
         ensure  => present,
     }
@@ -20,6 +18,15 @@ class redis (
         mode    => '0444',
         require => Package['redis-server'],
         notify  => Service['redis-server'],
+    }
+
+    # ensure that /var/run/redis is created at boot
+    file { '/etc/tmpfiles.d/redis-startup.conf':
+        ensure  => present,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0444',
+        content => 'd /var/run/redis 0755 redis redis',
     }
 
     file { '/srv/redis':
@@ -49,10 +56,8 @@ class redis (
         require => Package['redis-server'],
     }
 
-    monitoring::services { 'Redis Process':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_redis',
-        },
+    monitoring::nrpe { 'Redis Process':
+        command => '/usr/lib/nagios/plugins/check_procs -a redis-server -c 1:1',
+        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/MediaWiki_Monitoring#Redis_Service'
     }
 }

@@ -1,8 +1,11 @@
 # nginx
 class nginx (
-    Variant[String, Integer] $nginx_worker_processes = lookup('nginx::worker_processes', {'default_value' => 'auto'}),
-    Boolean $use_graylog                             = lookup('nginx::use_graylog', {'default_value' => false}),
-    Boolean $enable_keepalive                        = lookup('nginx::enable_keepalive', {'default_value' => true}),
+    Variant[String, Integer] $nginx_worker_processes                  = lookup('nginx::worker_processes', {'default_value' => 'auto'}),
+    Boolean                  $use_graylog                             = lookup('nginx::use_graylog', {'default_value' => false}),
+    Integer                  $logrotate_number                        = lookup('nginx::logrotate_number', {'default_value' => 12}),
+    Integer                  $keepalive_timeout                       = lookup('nginx::keepalive_timeout', {'default_value' => 60}),
+    Integer                  $keepalive_requests                      = lookup('nginx::keepalive_requests', {'default_value' => 1000}),
+    String                   $nginx_client_max_body_size              = lookup('nginx::client_max_body_size', {'default_value' => '250M'}),
 ) {
     # Ensure Apache is absent: https://phabricator.miraheze.org/T253
     package { 'apache2':
@@ -38,7 +41,7 @@ class nginx (
 
     $module_path = get_module_path('varnish')
 
-    $cache_proxies = query_facts("domain='$domain' and Class['Role::Varnish']", ['ipaddress', 'ipaddress6'])
+    $cache_proxies = query_facts("domain='${domain}' and Class['Role::Varnish']", ['ipaddress', 'ipaddress6'])
     file { '/etc/nginx/nginx.conf':
         content => template('nginx/nginx.conf.erb'),
         require => Package['nginx'],
@@ -50,7 +53,7 @@ class nginx (
         source => 'puppet:///modules/nginx/fastcgi_params',
         notify => Service['nginx'],
     }
- 
+
     exec { 'nginx unmask':
         command     => '/bin/systemctl unmask nginx.service',
         refreshonly => true,
@@ -69,10 +72,10 @@ class nginx (
     }
 
     logrotate::conf { 'nginx':
-        ensure => present,
-        source => 'puppet:///modules/nginx/logrotate',
+        ensure  => present,
+        content => template('nginx/logrotate.erb'),
     }
 
     # Include nginx prometheus exported on all hosts that use the nginx class
-    include prometheus::nginx
+    include prometheus::exporter::nginx
 }

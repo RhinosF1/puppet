@@ -3,7 +3,15 @@
 input(type="imfile"
       File="<%= @path %>"
       reopenOnTruncate="<%= @reopen_on_truncate %>"
-<% if @startmsg_regex -%>
+<%- if @startmsg_regex -%>
       startmsg.regex="<%= @startmsg_regex %>"
-<% end -%>
-      Tag="<%= @syslog_tag_prefix %>-<%= @syslog_tag %>")
+<%- end -%>
+      addMetadata="<%= @addmetadata %>"
+      addCeeTag="<%= @addceetag %>"
+      Tag="<%= @syslog_tag_prefix %><%= @syslog_tag %>"
+<%- if @use_udp and @parse_json -%>
+      ruleset="rsyslog_udp_localhost_rule_parse_json"
+<%- elsif @use_udp -%>
+      ruleset="rsyslog_udp_localhost_rule"
+<%- end -%>
+      )

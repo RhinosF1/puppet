@@ -21,9 +21,12 @@ import os.path
 import subprocess
 import json
 import requests
+import re
+import time
 
 from prometheus_client import CollectorRegistry, Gauge, write_to_textfile
 from prometheus_client.exposition import generate_latest
+from dns import resolver
 
 log = logging.getLogger(__name__)
 
@@ -44,14 +47,21 @@ def collect_gdnsd_stats(stats, registry):
         namespace='gdnsd', registry=registry)
     dns_stats['v6'] = Gauge(
         'request_v6', 'IPv6 requests', namespace='gdnsd', registry=registry)
+    dns_stats['cookies'] = Gauge(
+        'cookie', 'EDNS cookies processed', ['status'],
+        namespace='gdnsd', registry=registry)
 
     if any(x not in stats for x in ('uptime', 'udp', 'tcp', 'stats')):
         raise ValueError('Failed to parse stats {}'.format(stats))
 
+    cookie_re = re.compile('^edns_cookie_([a-z]+)$')
     try:
         for name, value in stats['stats'].items():
-            if name in ('noerror', 'refused', 'nxdomain', 'notimp',
-                        'badvers', 'formerr', 'dropped'):
+            cm = cookie_re.match(name)
+            if cm:
+                dns_stats['cookies'].labels(status=cm.group(1)).set(value)
+            elif name in ('noerror', 'refused', 'nxdomain', 'notimp',
+                          'badvers', 'formerr', 'dropped'):
                 dns_stats['requests'].labels(status=name).set(value)
             elif name in dns_stats:
                 dns_stats[name].set(value)
@@ -69,6 +79,15 @@ def collect_gdnsd_stats(stats, registry):
             'uptime', 'gdnsd daemon uptime', namespace='gdnsd',
             registry=registry)
         uptime.set(stats['uptime'])
+        latency = Gauge(
+            'latency', 'gdnsd request latency', namespace='gdnsd',
+            registry=registry)
+        lat_req = resolver.Resolver(configure=False)
+        lat_req.nameservers = ['127.0.0.1']
+        lat_s = time.time()
+        lat_req.resolve('miraheze.org')
+        lat_e = time.time()
+        latency.set(round((lat_e - lat_s) * 1000, 2))
     except ValueError:
         log.exception('Failed to parse stats {}'.format(stats))
 

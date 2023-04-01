@@ -5,16 +5,13 @@ class puppetdb::database(
     Optional[String] $master = undef
 ) {
     $pgversion = $::lsbdistcodename ? {
-        'buster'  => '11',
-        'stretch' => '9.6',
-        'jessie'  => '9.4',
+        'bullseye' => '13',
     }
 
     $puppetdb_pass = lookup('puppetdb::password::rw')
 
     # We do this for the require in postgres::db
     $require_class = 'postgresql::master'
-    include role::postgresql
 
     # Postgres replication and users
     $postgres_users = lookup('puppetdb::postgres_users', {'default_value' => undef})
@@ -35,11 +32,11 @@ class puppetdb::database(
     # Create the puppetdb user for localhost
     # This works on every server and is used for read-only db lookups
     postgresql::user { 'puppetdb@localhost':
-        ensure    => present,
-        user      => 'puppetdb',
-        database  => 'puppetdb',
-        password  => $puppetdb_pass,
-        master    => true,
+        ensure   => present,
+        user     => 'puppetdb',
+        database => 'puppetdb',
+        password => $puppetdb_pass,
+        master   => true,
     }
 
     # Create the database

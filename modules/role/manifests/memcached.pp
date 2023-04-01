@@ -1,16 +1,15 @@
-# role: memcached
+# === Class role::memcached
 class role::memcached (
     String            $version          = lookup('role::memcached::version'),
     Stdlib::Port      $port             = lookup('role::memcached::port'),
     Integer           $size             = lookup('role::memcached::size'),
     Array[String]     $extended_options = lookup('role::memcached::extended_options'),
-    Integer           $max_seq_reqs     = lookup('role::memcached::max_seq_reqs'),
+    Optional[Integer] $max_seq_reqs     = lookup('role::memcached::max_seq_reqs'),
     Integer           $min_slab_size    = lookup('role::memcached::min_slab_size'),
     Float             $growth_factor    = lookup('role::memcached::growth_factor'),
     Optional[Integer] $threads          = lookup('role::memcached::threads'),
 ) {
-
-    include prometheus::memcached_exporter
+    include prometheus::exporter::memcached
 
     if !empty( $extended_options ) {
         $base_extra_options = {

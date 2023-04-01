@@ -1,7 +1,10 @@
 class monitoring::ircecho (
     String $mirahezebots_password = undef,
 ) {
-    require_package(['python3-pyinotify', 'python3-irc'])
+    ensure_packages([
+        'python3-irc',
+        'python3-pyinotify',
+    ])
 
     file { '/usr/local/bin/ircecho':
         ensure => 'present',
@@ -12,11 +15,10 @@ class monitoring::ircecho (
         notify => Service['ircecho'],
     }
 
-
     $pyversion = $::lsbdistcodename ? {
-        'buster'  => 'python3.7',
-        'stretch' => 'python3.5',
+        'bullseye' => 'python3.9',
     }
+
     file { "/usr/local/lib/${pyversion}/dist-packages/ib3_auth.py":
         ensure => 'present',
         source => 'puppet:///modules/monitoring/bot/ib3_auth.py',
@@ -47,17 +49,13 @@ class monitoring::ircecho (
         notify  => Service['ircecho'],
     }
 
-
     systemd::service { 'ircecho':
         ensure  => present,
         content => systemd_template('ircecho'),
         restart => true,
     }
 
-    monitoring::services { 'IRCEcho':
-        check_command => 'nrpe',
-        vars          => {
-            nrpe_command => 'check_ircecho',
-        },
+    monitoring::nrpe { 'IRCEcho':
+        command => '/usr/lib/nagios/plugins/check_procs -a /usr/local/bin/ircecho -c 1:1'
     }
 }

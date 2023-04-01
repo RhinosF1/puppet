@@ -1,6 +1,6 @@
 # class: dovecot
 class dovecot {
-    include ssl::wildcard
+    ssl::wildcard { 'dovecot wildcard': }
 
     package { [ 'dovecot-core', 'dovecot-imapd', 'dovecot-ldap' ]:
         ensure => present,
@@ -21,8 +21,8 @@ class dovecot {
     }
 
     service { 'dovecot':
-        ensure    => 'running',
-        require   => Package['dovecot-core'],
+        ensure  => 'running',
+        require => Package['dovecot-core'],
     }
 
     monitoring::services { 'IMAP':

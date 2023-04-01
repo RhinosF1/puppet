@@ -3,16 +3,30 @@ class grafana (
     String $grafana_password = lookup('passwords::db::grafana'),
     String $mail_password = lookup('passwords::mail::noreply'),
     String $ldap_password = lookup('passwords::ldap_password'),
+    String $grafana_db_host = lookup('grafana_db_host', {'default_value' => 'db112.miraheze.org'}),
 ) {
 
     include ::apt
 
+    file { '/usr/share/keyrings/grafana.key':
+        ensure => present,
+        source => 'puppet:///modules/grafana/grafana.key',
+    }
+
     apt::source { 'grafana_apt':
         comment  => 'Grafana stable',
-        location => 'https://packages.grafana.com/oss/deb',
+        location => 'https://apt.grafana.com',
         release  => 'stable',
         repos    => 'main',
-        key      => 'F51A91A5EE001AA5D77D53C4C6E319C334410682',
+        keyring  => '/usr/share/keyrings/grafana.key',
+        require  => File['/usr/share/keyrings/grafana.key'],
+        notify   => Exec['apt_update_grafana'],
+    }
+
+    exec {'apt_update_grafana':
+        command     => '/usr/bin/apt-get update',
+        refreshonly => true,
+        logoutput   => true,
     }
 
     package { 'grafana':
@@ -44,7 +58,7 @@ class grafana (
         require => Package['grafana'],
     }
 
-    include ssl::wildcard
+    ssl::wildcard { 'grafana wildcard': }
 
     nginx::site { 'grafana.miraheze.org':
         ensure => present,
@@ -57,5 +71,5 @@ class grafana (
             http_ssl   => true,
             http_vhost => 'grafana.miraheze.org',
         },
-     }
+    }
 }

@@ -3,13 +3,13 @@ myorigin = /etc/mailname
 mydestination = localhost
 relayhost =
 relay_domains =
-mynetworks = 51.195.236.253
+mynetworks = 31.24.105.128/28 [2a10:6740::]/48
 mailbox_size_limit = 0
 virtual_mailbox_limit = 0
 recipient_delimiter = +
 inet_interfaces = all
-smtp_bind_address=51.195.236.253
-smtp_bind_address6=2001:41d0:800:1bbd::7
+smtp_bind_address=31.24.105.139
+smtp_bind_address6=2a10:6740::6:307
 
 virtual_mailbox_domains = $myhostname
 virtual_mailbox_base = /var/mail
@@ -18,6 +18,8 @@ virtual_alias_maps = ldap:/etc/postfix/ldap/virtual_alias_maps ldap:/etc/postfix
 virtual_mailbox_maps = ldap:/etc/postfix/ldap/virtual_mailbox_maps
 virtual_uid_maps = static:111
 virtual_gid_maps = static:8
+
+double_bounce_sender = noreply
 
 smtpd_sasl_type = dovecot
 smtpd_sasl_path = private/auth
@@ -43,3 +45,6 @@ notify_classes = delay, resource, software
 
 smtpd_sender_login_maps = ldap:/etc/postfix/ldap/smtpd_sender_login_maps
 smtpd_sender_restrictions = reject_sender_login_mismatch
+strict_mailbox_ownership = no
+
+header_checks = regexp:/etc/postfix/header_checks

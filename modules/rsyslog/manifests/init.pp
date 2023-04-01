@@ -4,9 +4,7 @@
 # syslogd implementation on Debian systems.
 #
 class rsyslog {
-    package { 'rsyslog':
-        ensure => present,
-    }
+    ensure_packages('rsyslog')
 
     file { '/etc/rsyslog.d':
         ensure  => directory,
@@ -25,5 +23,10 @@ class rsyslog {
     service { 'rsyslog':
         ensure  => running,
         require => Package['rsyslog'],
+    }
+
+    file { '/etc/rsyslog.d/00-abort-unclean-config.conf':
+        ensure => absent,
+        notify => Service['rsyslog'],
     }
 }

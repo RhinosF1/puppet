@@ -6,7 +6,7 @@ class postfix {
         'postfix-pcre',
     ]
 
-    include ssl::wildcard
+    ssl::wildcard { 'postfix wildcard': }
 
     package { $packages:
         ensure => present,
@@ -21,6 +21,12 @@ class postfix {
     file { '/etc/postfix/master.cf':
         ensure => present,
         source => 'puppet:///modules/postfix/master.cf',
+        notify => Service['postfix'],
+    }
+
+    file { '/etc/postfix/header_checks':
+        ensure => present,
+        source => 'puppet:///modules/postfix/header_checks',
         notify => Service['postfix'],
     }
 
@@ -61,8 +67,8 @@ class postfix {
     }
 
     service { 'postfix':
-        ensure    => running,
-        require   => Package['postfix'],
+        ensure  => running,
+        require => Package['postfix'],
     }
 
     monitoring::services { 'SMTP':
