@@ -1,6 +1,6 @@
 # servers
 
-node /^bast1[02]1\.miraheze\.org$/ {
+node /^bast1[24]1\.miraheze\.org$/ {
     include base
     include role::bastion
 }
@@ -10,27 +10,22 @@ node /^cloud1[01234]\.miraheze\.org$/ {
     include role::cloud
 }
 
-node /^cp(2[01]|3[01])\.miraheze\.org$/ {
+node /^cp(2[45]|3[2345])\.miraheze\.org$/ {
     include base
     include role::varnish
 }
 
-node /^db1([0234]1|12)\.miraheze\.org$/ {
+node /^db1([0234][12]|12)\.miraheze\.org$/ {
     include base
     include role::db
 }
 
-node /^es1[34]1\.miraheze\.org$/ {
+node /^os1[34]1\.miraheze\.org$/ {
     include base
-    include role::elasticsearch
+    include role::opensearch
 }
 
-node /^gluster1[02][12]\.miraheze\.org$/ {
-    include base
-    include role::gluster
-}
-
-node 'graylog121.miraheze.org' {
+node 'graylog131.miraheze.org' {
     include base
     include role::graylog
 }
@@ -52,12 +47,12 @@ node 'mail121.miraheze.org' {
     include role::roundcubemail
 }
 
-node 'matomo131.miraheze.org' {
+node 'matomo121.miraheze.org' {
     include base
     include role::matomo
 }
 
-node /^mem1[03]1\.miraheze\.org$/ {
+node /^mem1[34]1\.miraheze\.org$/ {
     include base
     include role::memcached
 }
@@ -69,7 +64,7 @@ node 'mon141.miraheze.org' {
     include role::irc
 }
 
-node /^mw1[234][12]\.miraheze\.org$/ {
+node /^mw1[234][1234]\.miraheze\.org$/ {
     include base
     include role::mediawiki
 }
@@ -98,9 +93,17 @@ node 'puppet141.miraheze.org' {
     include base
     include role::postgresql
     include puppetdb::database
+    include role::puppetdb
     include role::puppetserver
     include role::salt
     include role::ssl
+}
+
+node 'puppetdb121.miraheze.org' {
+    include base
+    include role::postgresql
+    include puppetdb::database
+    include role::puppetdb
 }
 
 node 'reports121.miraheze.org' {
@@ -108,8 +111,24 @@ node 'reports121.miraheze.org' {
     include role::reports
 }
 
+node /^swiftproxy1[13]1\.miraheze\.org$/ {
+    include base
+    include role::swift
+}
+
+node 'swiftac111.miraheze.org' {
+    include base
+    include role::swift
+}
+
+node /^swiftobject1[012][123]\.miraheze\.org$/ {
+    include base
+    include role::swift
+}
+
 node 'test131.miraheze.org' {
     include base
+    include role::memcached
     include role::mediawiki
     include role::redis
     include mediawiki::jobqueue::chron

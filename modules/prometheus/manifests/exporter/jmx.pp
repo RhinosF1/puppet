@@ -83,9 +83,16 @@ define prometheus::exporter::jmx (
         links   => 'follow',
     }
 
-    $firewall_rules = query_facts('Class[Prometheus]', ['ipaddress', 'ipaddress6'])
-    $firewall_rules_mapped = $firewall_rules.map |$key, $value| { "${value['ipaddress']} ${value['ipaddress6']}" }
-    $firewall_rules_str = join($firewall_rules_mapped, ' ')
+    $firewall_rules_str = join(
+        query_facts("networking.domain='${facts['networking']['domain']}' and Class[Role::Prometheus]", ['networking'])
+        .map |$key, $value| {
+            "${value['networking']['ip']} ${value['networking']['ip6']}"
+        }
+        .flatten()
+        .unique()
+        .sort(),
+        ' '
+    )
     ferm::service { "prometheus ${port} jmx_exporter":
         proto  => 'tcp',
         port   => $port,

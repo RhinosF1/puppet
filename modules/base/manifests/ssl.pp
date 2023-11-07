@@ -1,14 +1,10 @@
 # base::ssl
 class base::ssl {
-    $sslPackages = [
+    stdlib::ensure_packages([
         'openssl',
         'ssl-cert',
         'ca-certificates',
-    ]
-
-    package { $sslPackages:
-        ensure => present,
-    }
+    ])
 
     file { 'authority certificates':
         path    => '/etc/ssl/certs',
@@ -21,13 +17,5 @@ class base::ssl {
         command     => '/usr/sbin/update-ca-certificates',
         refreshonly => true,
         require     => File['authority certificates'],
-    }
-
-    file { '/etc/ssl/localcerts':
-        ensure  => directory,
-        owner   => 'root',
-        group   => 'ssl-cert',
-        mode    => '0775',
-        require => Package['ssl-cert'],
     }
 }

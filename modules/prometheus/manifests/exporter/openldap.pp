@@ -19,18 +19,25 @@ class prometheus::exporter::openldap {
     }
 
     systemd::service { 'prometheus-openldap-exporter':
-        ensure  => present,
-        restart => true,
-        content => systemd_template('prometheus-openldap-exporter'),
+        ensure         => present,
+        restart        => true,
+        content        => systemd_template('prometheus-openldap-exporter'),
         service_params => {
             enable  => true,
             require => File['/etc/openldap-exporter.yaml'],
         }
     }
 
-    $firewall_rules = query_facts('Class[Prometheus]', ['ipaddress', 'ipaddress6'])
-    $firewall_rules_mapped = $firewall_rules.map |$key, $value| { "${value['ipaddress']} ${value['ipaddress6']}" }
-    $firewall_rules_str = join($firewall_rules_mapped, ' ')
+    $firewall_rules_str = join(
+        query_facts("networking.domain='${facts['networking']['domain']}' and Class[Role::Prometheus]", ['networking'])
+        .map |$key, $value| {
+            "${value['networking']['ip']} ${value['networking']['ip6']}"
+        }
+        .flatten()
+        .unique()
+        .sort(),
+        ' '
+    )
     ferm::service { 'prometheus openldap_exporter':
         proto  => 'tcp',
         port   => '9142',

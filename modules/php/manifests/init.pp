@@ -8,9 +8,9 @@ class php(
     Array[Php::Sapi] $sapis                   = ['cli'],
     Hash $config_by_sapi                      = {},
     Hash $extensions                          = {}
-) { 
+) {
     # We need php-common everywhere
-    ensure_packages(["php${version}-common", "php${version}-opcache"])
+    stdlib::ensure_packages(["php${version}-common", "php${version}-opcache"])
 
     $config_dir = "/etc/php/${version}"
 
@@ -73,7 +73,9 @@ class php(
     }
 
     # Configure the builtin extensions
-    class { '::php::default_extensions': }
+    class { '::php::default_extensions':
+        version => $version,
+    }
 
     # Install and configure the extensions provided by the user
     $ext_defaults = {'sapis' => $sapis}

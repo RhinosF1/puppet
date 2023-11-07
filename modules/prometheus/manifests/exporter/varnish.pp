@@ -1,7 +1,7 @@
 class prometheus::exporter::varnish (
     String $listen_port = '9131',
 ) {
-    ensure_packages('prometheus-varnish-exporter')
+    stdlib::ensure_packages('prometheus-varnish-exporter')
 
     systemd::service { 'prometheus-varnish-exporter':
         ensure  => present,
@@ -9,9 +9,16 @@ class prometheus::exporter::varnish (
         restart => true,
     }
 
-    $firewall_rules = query_facts('Class[Role::Prometheus]', ['ipaddress', 'ipaddress6'])
-    $firewall_rules_mapped = $firewall_rules.map |$key, $value| { "${value['ipaddress']} ${value['ipaddress6']}" }
-    $firewall_rules_str = join($firewall_rules_mapped, ' ')
+    $firewall_rules_str = join(
+        query_facts("networking.domain='${facts['networking']['domain']}' and Class[Role::Prometheus]", ['networking'])
+        .map |$key, $value| {
+            "${value['networking']['ip']} ${value['networking']['ip6']}"
+        }
+        .flatten()
+        .unique()
+        .sort(),
+        ' '
+    )
     ferm::service { 'prometheus varnish_exporter':
         proto  => 'tcp',
         port   => $listen_port,

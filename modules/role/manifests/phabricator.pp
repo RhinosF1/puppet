@@ -3,9 +3,9 @@ class role::phabricator {
     include ::phabricator
 
     $firewall_rules_str = join(
-        query_facts('Class[Role::Varnish] or Class[Role::Icinga2]', ['ipaddress', 'ipaddress6'])
+        query_facts("networking.domain='${facts['networking']['domain']}' and Class[Role::Varnish] or Class[Role::Icinga2]", ['networking'])
         .map |$key, $value| {
-            "${value['ipaddress']} ${value['ipaddress6']}"
+            "${value['networking']['ip']} ${value['networking']['ip6']}"
         }
         .flatten()
         .unique()
@@ -21,7 +21,7 @@ class role::phabricator {
     }
 
     ferm::service { 'https':
-        proto    => 'tcp',
+        proto   => 'tcp',
         port    => '443',
         srange  => "(${firewall_rules_str})",
         notrack => true,

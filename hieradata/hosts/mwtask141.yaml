@@ -17,7 +17,7 @@ mediawiki::php::fpm_config:
   post_max_size: '250M'
   upload_max_filesize: '250M'
 
-mediawiki::php::memory_limit: '256M'
+mediawiki::php::memory_limit: '1G'
 
 mediawiki::is_canary: true
 mediawiki::use_staging: true
@@ -25,10 +25,7 @@ mediawiki::use_staging: true
 php::php_version: '7.4'
 
 http_proxy: 'http://bast.miraheze.org:8080'
-gluster_volume: gluster.miraheze.org:/static
 
-base::syslog::syslog_daemon: rsyslog
-base::syslog::syslog_host: [ 'graylog121.miraheze.org:12210' ]
 base::syslog::rsyslog_udp_localhost: true
 
 # NGINX

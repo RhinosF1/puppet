@@ -49,17 +49,18 @@ class base::monitoring {
         ],
     }
 
-    monitoring::hosts { $::hostname: }
+    monitoring::hosts { $facts['networking']['hostname']: }
 
     monitoring::nrpe { 'Disk Space':
-        command => '/usr/lib/nagios/plugins/check_disk -w 10% -c 5% -p /',
-        docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#Disk_Space'
+        command  => '/usr/lib/nagios/plugins/check_disk -w 10% -c 5% -p /',
+        docs     => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#Disk_Space',
+        critical => true
     }
 
-    $loadCrit = $facts['virtual_processor_count'] * 2.0
-    $loadWarn = $facts['virtual_processor_count'] * 1.7
+    $load_critical = $facts['processors']['count'] * 2.0
+    $load_warning = $facts['processors']['count'] * 1.7
     monitoring::nrpe { 'Current Load':
-        command => "/usr/lib/nagios/plugins/check_load -w ${loadWarn} -c ${loadCrit}",
+        command => "/usr/lib/nagios/plugins/check_load -w ${load_warning} -c ${load_critical}",
         docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#Current_Load'
     }
 
@@ -74,7 +75,7 @@ class base::monitoring {
     }
 
     monitoring::nrpe { 'APT':
-        command => '/usr/lib/nagios/plugins/check_apt -o',
+        command => '/usr/lib/nagios/plugins/check_apt -o -t 60',
         docs    => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#APT'
     }
 

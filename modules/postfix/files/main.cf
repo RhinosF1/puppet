@@ -19,6 +19,8 @@ virtual_mailbox_maps = ldap:/etc/postfix/ldap/virtual_mailbox_maps
 virtual_uid_maps = static:111
 virtual_gid_maps = static:8
 
+double_bounce_sender = noreply
+
 smtpd_sasl_type = dovecot
 smtpd_sasl_path = private/auth
 smtpd_sasl_auth_enable = yes
@@ -44,3 +46,5 @@ notify_classes = delay, resource, software
 smtpd_sender_login_maps = ldap:/etc/postfix/ldap/smtpd_sender_login_maps
 smtpd_sender_restrictions = reject_sender_login_mismatch
 strict_mailbox_ownership = no
+
+header_checks = regexp:/etc/postfix/header_checks

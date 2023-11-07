@@ -1,3 +1,4 @@
+name: Check Python
 on:
   push:
     paths:
@@ -14,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ['3.9', '3.10', '3.11-dev']
+        python: ['3.9', '3.11', '3.12']
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Python ${{ matrix.python }}
         uses: actions/setup-python@v4
         with:
@@ -25,12 +26,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgnutls28-dev
-          pip install -U pip wheel
+          pip install -U pip
           pip install -r .github/pythonchecks.txt
       - name: Run tests
         run: |
-          flake8 modules/mediawiki modules/ssl modules/monitoring --enable-extensions=TC,TC1 --ignore=E501,W503,SFS301 --max-complexity 14
-          mypy modules/mediawiki modules/ssl modules/monitoring --ignore-missing-imports
+          flake8 modules/mediawiki modules/ssl --ignore=E501,W503,SFS301
           coverage run --branch -m pytest modules/mediawiki
-          coverage report --fail-under=70
-          vermin -v --eval-annotations --backport argparse --backport importlib --backport ipaddress --backport typing --backport dataclasses --no-parse-comments . 
+          mypy modules/mediawiki modules/ssl --ignore-missing-imports

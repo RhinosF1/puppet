@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe 'fqdn_rotate' do
-  it { is_expected.not_to eq(nil) }
+  it { is_expected.not_to be_nil }
   it { is_expected.to run.with_params.and_raise_error(Puppet::ParseError, %r{wrong number of arguments}i) }
   it { is_expected.to run.with_params(0).and_raise_error(Puppet::ParseError, %r{Requires either array or string to work with}) }
   it { is_expected.to run.with_params({}).and_raise_error(Puppet::ParseError, %r{Requires either array or string to work with}) }
@@ -17,26 +19,26 @@ describe 'fqdn_rotate' do
   end
 
   it 'rotates a string to give the same results for one host' do
-    val1 = fqdn_rotate('abcdefg', :host => 'one')
-    val2 = fqdn_rotate('abcdefg', :host => 'one')
+    val1 = fqdn_rotate('abcdefg', host: 'one')
+    val2 = fqdn_rotate('abcdefg', host: 'one')
     expect(val1).to eq(val2)
   end
 
   it 'allows extra arguments to control the random rotation on a single host' do
-    val1 = fqdn_rotate('abcdefg', :extra_identifier => [1, 'different', 'host'])
-    val2 = fqdn_rotate('abcdefg', :extra_identifier => [2, 'different', 'host'])
+    val1 = fqdn_rotate('abcdefg', extra_identifier: [1, 'different', 'host'])
+    val2 = fqdn_rotate('abcdefg', extra_identifier: [2, 'different', 'host'])
     expect(val1).not_to eq(val2)
   end
 
   it 'considers the same host and same extra arguments to have the same random rotation' do
-    val1 = fqdn_rotate('abcdefg', :extra_identifier => [1, 'same', 'host'])
-    val2 = fqdn_rotate('abcdefg', :extra_identifier => [1, 'same', 'host'])
+    val1 = fqdn_rotate('abcdefg', extra_identifier: [1, 'same', 'host'])
+    val2 = fqdn_rotate('abcdefg', extra_identifier: [1, 'same', 'host'])
     expect(val1).to eq(val2)
   end
 
   it 'rotates a string to give different values on different hosts' do
-    val1 = fqdn_rotate('abcdefg', :host => 'one')
-    val2 = fqdn_rotate('abcdefg', :host => 'two')
+    val1 = fqdn_rotate('abcdefg', host: 'one')
+    val2 = fqdn_rotate('abcdefg', host: 'two')
     expect(val1).not_to eq(val2)
   end
 
@@ -66,7 +68,7 @@ describe 'fqdn_rotate' do
 
     # workaround not being able to use let(:facts) because some tests need
     # multiple different hostnames in one context
-    allow(scope).to receive(:lookupvar).with('::fqdn').and_return(host)
+    allow(scope).to receive(:lookupvar).with('facts').and_return(host)
 
     function_args = [value] + extra
     scope.function_fqdn_rotate(function_args)

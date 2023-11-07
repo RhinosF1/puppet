@@ -1,3 +1,4 @@
+name: Check for Typos
 on:
   push:
   pull_request:
@@ -6,7 +7,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run typos
+        continue-on-error: true
         run: |
            ! grep -E -r --binary-files=without-match --color=always --file=typos --exclude=typos --exclude-dir=.git

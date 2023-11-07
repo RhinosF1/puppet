@@ -2,17 +2,93 @@
 // This file is managed by Puppet
 {
     "groups": {
+        "basic": {
+            // Number of runner processes in this group
+            "runners": 2,
+            // Job types to include ("*" means "all")
+            "include": [
+                "*"
+            ],
+            // Job types to exempt (useful when combined with "*")
+            "exclude": [
+                "AssembleUploadChunks",
+                "DataDumpGenerateJob",
+                "parsoidCachePrewarm",
+                "PublishStashedFile",
+                "RecordLintJob",
+                "RequestWikiAIJob",
+                "refreshLinks",
+                "refreshLinksDynamic",
+                "uploadFromUrl",
+                "webVideoTranscode",
+                "webVideoTranscodePrioritized",
+                "NamespaceMigrationJob",
+                "smw.changePropagationClassUpdate"
+            ],
+            "low-priority": [
+                "htmlCacheUpdate"
+            ]
+        },
+        "html": {
+            // Number of runner processes in this group
+            "runners": 1,
+            "include": [
+                "htmlCacheUpdate",
+                "refreshLinks",
+                "refreshLinksDynamic"
+            ],
+            "low-priority": [
+                "refreshLinksDynamic",
+                "refreshLinks"
+            ]
+        },
         "hi": {
             // Number of runner processes in this group
             "runners": 1,
             // Job types to include ("*" means "all")
             "include": [
                 "DataDumpGenerateJob",
-                "RequestWikiAIJob",
+                "RecordLintJob"
+            ]
+        },
+        "managewiki": {
+            // Number of runner processes in this group
+            "runners": 1,
+            // Job types to include ("*" means "all")
+            "include": [
+                "NamespaceMigrationJob",
+                "RequestWikiAIJob"
+            ]
+        },
+        "parseroidcache": {
+            // Number of runner processes in this group
+            "runners": 4,
+            // Job types to include ("*" means "all")
+            "include": [
+                "parsoidCachePrewarm"
+            ]
+        },
+        "smw": {
+            // Number of runner processes in this group
+            "runners": 1,
+            // Job types to include ("*" means "all")
+            "include": [
+                "smw.changePropagationClassUpdate"
+            ]
+        },
+        "transcode": {
+            "runners": 1,
+            "include": [
                 "webVideoTranscode",
-                "webVideoTranscodePrioritized",
-                "RecordLintJob",
-                "refreshLinks"
+                "webVideoTranscodePrioritized"
+            ]
+        },
+        "upload": {
+            "runners": 1,
+            "include": [
+                "AssembleUploadChunks",
+                "PublishStashedFile",
+                "uploadFromUrl"
             ]
         }
     },
@@ -20,27 +96,43 @@
     "limits": {
         // How many times to let jobs be recycled before abandoning
         "attempts": {
-            "*": 2
+            "*": 3,
+            "LocalPageMoveJob": 6,
+            "renameUser": 6
         },
         // How long jobs can be claimed before being recycled
         "claimTTL": {
             "*": 3600,
             "DataDumpGenerateJob": 86400,
-            "webVideoTranscode": 86400
+            "NamespaceMigrationJob": 9000,
+            "parsoidCachePrewarm": 9000,
+            "refreshLinks": 9000,
+            "refreshLinksDynamic": 9000,
+            "refreshLinksPrioritized": 9000,
+            "webVideoTranscode": 86400,
+            "webVideoTranscodePrioritized": 86400
         },
         // runJobs.php process time limits
         "real": {
-            "*": 130,
-            "DataDumpGenerateJob": 9000,
-            "webVideoTranscode": 9000
+            "*": 300,
+            "DataDumpGenerateJob": 21600,
+            "NamespaceMigrationJob": 9000,
+            "parsoidCachePrewarm": 9000,
+            "refreshLinks": 9000,
+            "refreshLinksDynamic": 9000,
+            "refreshLinksPrioritized": 9000,
+            "webVideoTranscode": 86400,
+            "webVideoTranscodePrioritized": 86400
         },
         // runJobs.php memory limits
         "memory": {
-            "*": "192M",
-            "DataDumpGenerateJob": "300M",
-            "RequestWikiAIJob": "1750M",
-            "webVideoTranscode": "300M",
-            "refreshLinks": "500M"
+            "*": "500M",
+            "DataDumpGenerateJob": "512M",
+            "parsoidCachePrewarm": "1400M",
+            "refreshLinks": "1400M",
+            "refreshLinksDynamic": "1400M",
+            "refreshLinksPrioritized": "1400M",
+            "RequestWikiAIJob": "2000M"
         }
     },
 
@@ -57,5 +149,5 @@
     },
 
     // Command used to launch a runner for a given job queue
-    "dispatcher": "php /srv/mediawiki/w/maintenance/runJobs.php --wiki=%(db)x --type=%(type)x --maxtime=%(maxtime)x --memory-limit=%(maxmem)x --maxjobs 1 --result=json"
+    "dispatcher": "php /srv/mediawiki/w/maintenance/run.php /srv/mediawiki/w/maintenance/runJobs.php --wiki=%(db)x --type=%(type)x --maxtime=%(maxtime)x --memory-limit=%(maxmem)x --result=json"
 }

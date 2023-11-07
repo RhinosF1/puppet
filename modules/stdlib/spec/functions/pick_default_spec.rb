@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 
 describe 'pick_default' do
-  it { is_expected.not_to eq(nil) }
+  it { is_expected.not_to be_nil }
   it { is_expected.to run.with_params.and_raise_error(RuntimeError, %r{Must receive at least one argument}) }
 
   it { is_expected.to run.with_params('one', 'two').and_return('one') }
@@ -24,7 +26,8 @@ describe 'pick_default' do
     end
   end
 
-  if Puppet::Util::Package.versioncmp(Puppet.version, '6.0.0') < 0
+  if Puppet::Util::Package.versioncmp(Puppet.version, '6.0.0') < 0 ||
+     Puppet::Util::Package.versioncmp(Puppet.version, '5.5.7') == 0
     def mapped_value(v)
       v
     end

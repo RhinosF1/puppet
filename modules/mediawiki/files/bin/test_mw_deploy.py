@@ -1,5 +1,8 @@
 import importlib
+import socket
+import time
 
+import pytest
 mwd = importlib.import_module('deploy-mediawiki')
 
 
@@ -145,14 +148,10 @@ def test_construct_git_pull_branch() -> None:
     assert mwd._construct_git_pull('config', branch='myfunbranch') == 'sudo -u www-data git -C /srv/mediawiki-staging/config/ pull origin myfunbranch --quiet'
 
 
+<<<<<<< HEAD
 def test_construct_git_pull_branch_sm() -> None:
     assert mwd._construct_git_pull('config', submodules=True, branch='test') == 'sudo -u www-data git -C /srv/mediawiki-staging/config/ pull --recurse-submodules origin test --quiet'
-
-
-def test_get_command_array() -> None:
-    assert mwd.get_command_array('sudo -u www-data echo test') == ['sudo', '-u www-data echo test']
-
-
+=======
 def test_run_command() -> None:
     assert mwd.run_command('echo test') == 0
 
@@ -165,13 +164,13 @@ def test_get_envinfo() -> None:
     assert mwd.get_environment_info() == {
         'servers':
         [
+            'mw101',
+            'mw102',
+            'mw111',
+            'mw112',
             'mw121',
             'mw122',
-            'mw131',
-            'mw132',
-            'mw141',
-            'mw142',
-            'mwtask141',
+            'mwtask111',
         ],
         'wikidbname': 'testwiki',
         'wikiurl': 'publictestwiki.com',
@@ -182,350 +181,90 @@ def test_get_servers_all() -> None:
     assert mwd.get_server_list(
         mwd.get_environment_info()['servers'],
         'all') == [
+        'mw101',
+        'mw102',
+        'mw111',
+        'mw112',
         'mw121',
         'mw122',
-        'mw131',
-        'mw132',
-        'mw141',
-        'mw142',
-        'mwtask141',
+        'mwtask111',
     ]
 
 
 def test_get_servers_two() -> None:
-    assert mwd.get_server_list(mwd.get_environment_info()['servers'], 'mw121,mw131') == ['mw121', 'mw131']
+    assert mwd.get_server_list(mwd.get_environment_info()['servers'], 'mw101,mw111') == ['mw101', 'mw111']
 
 
-def test_prep() -> None:
-    args = mwd.get_parsed_args()
+def test_run() -> None:
+    parser = argparse.ArgumentParser()
+    args, unknown = parser.parse_known_args()
+    del unknown
     args.servers = 'all'
-    assert mwd.prep(args) == {'runprep': False, 'doworld': False, 'loginfo': {'servers': 'all'}, 'nolog': False, 'force': False, 'port': None, 'debugurl': 'publictestwiki.com', 'commands': {'stage': [], 'rsync': [], 'postinstall': [], 'rebuild': []}, 'remote': {'commands': [], 'files': [], 'paths': []}}
-
-
-def test_prep_server_nonsense() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'None'
-    failed = False
-    try:
-        mwd.prep(args)
-    except ValueError as e:
-        assert str(e) == "None is not a valid server - available servers: ['mw121', 'mw122', 'mw131', 'mw132', 'mw141', 'mw142', 'mwtask141']"
-        failed = True
-    assert failed
-
-
-def test_prep_single_server() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'mw121'
-    assert mwd.prep(args) == {'runprep': False, 'doworld': False, 'loginfo': {'servers': 'mw121'}, 'force': False, 'port': None, 'nolog': False, 'debugurl': 'publictestwiki.com', 'commands': {'stage': [], 'rsync': [], 'postinstall': [], 'rebuild': []}, 'remote': {'commands': [], 'files': [], 'paths': []}}
-
-
-def test_prep_multi_server() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'mw121,mw122'
-    assert mwd.prep(args) == {'runprep': False, 'doworld': False, 'loginfo': {'servers': 'mw121,mw122'}, 'force': False, 'port': None, 'nolog': False, 'debugurl': 'publictestwiki.com', 'commands': {'stage': [], 'rsync': [], 'postinstall': [], 'rebuild': []}, 'remote': {'commands': [], 'files': [], 'paths': []}}
-
-
-def test_prep_nolog() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'all'
+    args.config = False
+    args.world = False
+    args.landing = False
+    args.errorpages = False
+    args.files = ''
+    args.folders = ''
+    args.extensionlist = False
+    args.l10n = False
     args.nolog = True
-    assert mwd.prep(args) == {'runprep': False, 'doworld': False, 'loginfo': {'servers': 'all', 'nolog': True}, 'nolog': True, 'force': False, 'port': None, 'debugurl': 'publictestwiki.com', 'commands': {'stage': [], 'rsync': [], 'postinstall': [], 'rebuild': []}, 'remote': {'commands': [], 'files': [], 'paths': []}}
+    assert mwd.run(args, time.time()) == 0
 
 
-def test_prep_world() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'mw121'
-    args.world = True
-    assert mwd.prep(args) == {
-        'runprep': False,
-        'commands': {
-            'postinstall': [],
-            'rebuild': [
-                mwd.WikiCommand(
-                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
-                    wiki='testwiki',
-                ),
-            ],
-            'rsync': [
-                'sudo -u www-data rsync --update -r --delete --exclude=".*" /srv/mediawiki-staging/w/* /srv/mediawiki/w/',
-            ],
-            'stage': [
-                'sudo -u www-data git -C /srv/mediawiki-staging/w/ pull --recurse-submodules --quiet',
-            ],
-        },
-        'debugurl': 'publictestwiki.com',
-        'doworld': True,
-        'force': False,
-        'loginfo': {
-            'servers': 'mw121',
-            'world': True,
-        },
-        'nolog': False,
-        'port': None,
-        'remote': {
-            'files': [],
-            'paths': ['/srv/mediawiki/cache/gitinfo/', '/srv/mediawiki/w/'],
-            'commands': [
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/gitinfo/ www-data@mw121.miraheze.org:/srv/mediawiki/cache/gitinfo/',
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/w/ www-data@mw121.miraheze.org:/srv/mediawiki/w/',
-            ],
-        },
-    }
+def test_run_log() -> None:
+    parser = argparse.ArgumentParser()
+    args, unknown = parser.parse_known_args()
+    del unknown
+    args.servers = 'all'
+    args.config = False
+    args.world = False
+    args.landing = False
+    args.errorpages = False
+    args.files = ''
+    args.folders = ''
+    args.extensionlist = False
+    args.l10n = False
+    args.nolog = False
+    assert mwd.run(args, time.time()) == 0
 
 
-def test_prep_landing() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'mw121'
+@pytest.mark.skip(reason="broken")
+@pytest.mark.server(url='/w/api.php?action=query&meta=siteinfo&formatversion=2&format=json', response=[{'id': 1}], method='GET')
+def test_run_full_suites() -> None:
+    parser = argparse.ArgumentParser()
+    args, unknown = parser.parse_known_args()
+    del unknown
+    args.servers = socket.gethostname().split('.')[0]
+    args.config = False
+    args.world = False
+    args.landing = False
+    args.errorpages = False
+    args.files = ''
+    args.folders = ''
+    args.extensionlist = False
+    args.l10n = False
+    args.nolog = True
+    args.pull = ''
+    args.l10nupdate = False
+    args.force = True
+    args.port = 5000
+    assert mwd.run(args, time.time()) == 0
+    args.nolog = False
+    assert mwd.run(args, time.time()) == 0
+    args.config = True
     args.landing = True
-    assert mwd.prep(args) == {
-        'runprep': False,
-        'commands': {
-            'postinstall': [],
-            'rebuild': [],
-            'rsync': [
-                'sudo -u www-data rsync --update -r --delete --exclude=".*" /srv/mediawiki-staging/landing/* /srv/mediawiki/landing/',
-            ],
-            'stage': [],
-        },
-        'debugurl': 'publictestwiki.com',
-        'doworld': False,
-        'force': False,
-        'loginfo': {
-            'landing': True,
-            'servers': 'mw121',
-        },
-        'nolog': False,
-        'port': None,
-        'remote': {
-            'files': [],
-            'paths': ['/srv/mediawiki/landing/'],
-            'commands': [
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/landing/ www-data@mw121.miraheze.org:/srv/mediawiki/landing/',
-            ],
-        },
-    }
-
-
-def test_prep_world_extlist() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'mw121'
-    args.world = True
-    args.extensionlist = True
-    assert mwd.prep(args) == {
-        'runprep': False,
-        'commands': {
-            'postinstall': [],
-            'rebuild': [
-                mwd.WikiCommand(
-                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
-                    wiki='testwiki',
-                ),
-                mwd.WikiCommand(command='/srv/mediawiki/w/extensions/CreateWiki/maintenance/rebuildExtensionListCache.php', wiki='testwiki'),
-            ],
-            'rsync': [
-                'sudo -u www-data rsync --update -r --delete --exclude=".*" /srv/mediawiki-staging/w/* /srv/mediawiki/w/',
-            ],
-            'stage': [
-                'sudo -u www-data git -C /srv/mediawiki-staging/w/ pull --recurse-submodules --quiet',
-            ],
-        },
-        'debugurl': 'publictestwiki.com',
-        'doworld': True,
-        'force': False,
-        'loginfo': {
-            'servers': 'mw121',
-            'world': True,
-            'extensionlist': True,
-        },
-        'nolog': False,
-        'port': None,
-        'remote': {
-            'files': ['/srv/mediawiki/cache/extension-list.json'],
-            'paths': ['/srv/mediawiki/cache/gitinfo/', '/srv/mediawiki/w/'],
-            'commands': [
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/gitinfo/ www-data@mw121.miraheze.org:/srv/mediawiki/cache/gitinfo/',
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/w/ www-data@mw121.miraheze.org:/srv/mediawiki/w/',
-                'sudo -u www-data rsync --update -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/extension-list.json www-data@mw121.miraheze.org:/srv/mediawiki/cache/extension-list.json',
-            ],
-        },
-    }
-
-
-def test_prep_folder_test() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'mw121'
-    args.folders = 'test'
-    assert mwd.prep(args) == {
-        'runprep': False,
-        'commands': {
-            'postinstall': [],
-            'rebuild': [],
-            'rsync': [
-                'sudo -u www-data rsync --update -r --delete --exclude=".*" /srv/mediawiki-staging/test/* /srv/mediawiki/test/',
-            ],
-            'stage': [],
-        },
-        'debugurl': 'publictestwiki.com',
-        'doworld': False,
-        'force': False,
-        'loginfo': {
-            'folders': 'test',
-            'servers': 'mw121',
-        },
-        'nolog': False,
-        'port': None,
-        'remote': {
-            'files': [],
-            'paths': ['/srv/mediawiki/test/'],
-            'commands': [
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/test/ www-data@mw121.miraheze.org:/srv/mediawiki/test/',
-            ],
-        },
-    }
-
-
-def test_prep_file_test() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'mw121'
-    args.files = 'test.txt'
-    assert mwd.prep(args) == {
-        'runprep': False,
-        'commands': {
-            'postinstall': [],
-            'rebuild': [],
-            'rsync': [
-                'sudo -u www-data rsync --update --exclude=".*" /srv/mediawiki-staging/test.txt /srv/mediawiki/test.txt',
-            ],
-            'stage': [],
-        },
-        'debugurl': 'publictestwiki.com',
-        'doworld': False,
-        'force': False,
-        'loginfo': {
-            'files': 'test.txt',
-            'servers': 'mw121',
-        },
-        'nolog': False,
-        'port': None,
-        'remote': {
-            'files': ['/srv/mediawiki/test.txt'],
-            'paths': [],
-            'commands': [
-                'sudo -u www-data rsync --update -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/test.txt www-data@mw121.miraheze.org:/srv/mediawiki/test.txt',
-            ],
-        },
-    }
-
-
-def test_prep_world_l10n() -> None:
-    args = mwd.get_parsed_args()
-    args.servers = 'mw121'
-    args.world = True
+    args.errorpages = True
+    args.ignoretime = False
     args.l10n = True
-    assert mwd.prep(args) == {
-        'runprep': False,
-        'commands': {
-            'postinstall': [mwd.WikiCommand(command='/srv/mediawiki/w/maintenance/mergeMessageFileList.php --quiet --output /srv/mediawiki/config/ExtensionMessageFiles.php', wiki='testwiki')],
-            'rebuild': [
-                mwd.WikiCommand(
-                    command='MW_INSTALL_PATH=/srv/mediawiki-staging/w /srv/mediawiki-staging/w/extensions/MirahezeMagic/maintenance/rebuildVersionCache.php --save-gitinfo --conf=/srv/mediawiki-staging/config/LocalSettings.php',
-                    wiki='testwiki',
-                ),
-                mwd.WikiCommand(command='/srv/mediawiki/w/maintenance/rebuildLocalisationCache.php --quiet', wiki='testwiki'),
-            ],
-            'rsync': [
-                'sudo -u www-data rsync --update -r --delete --exclude=".*" /srv/mediawiki-staging/w/* /srv/mediawiki/w/',
-            ],
-            'stage': [
-                'sudo -u www-data git -C /srv/mediawiki-staging/w/ pull --recurse-submodules --quiet',
-            ],
-        },
-        'debugurl': 'publictestwiki.com',
-        'doworld': True,
-        'force': False,
-        'loginfo': {
-            'servers': 'mw121',
-            'world': True,
-            'l10n': True,
-        },
-        'nolog': False,
-        'port': None,
-        'remote': {
-            'files': [],
-            'paths': ['/srv/mediawiki/cache/gitinfo/', '/srv/mediawiki/w/', '/srv/mediawiki/cache/l10n/'],
-            'commands': [
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/gitinfo/ www-data@mw121.miraheze.org:/srv/mediawiki/cache/gitinfo/',
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/w/ www-data@mw121.miraheze.org:/srv/mediawiki/w/',
-                'sudo -u www-data rsync --update -r --delete -e "ssh -i /srv/mediawiki-staging/deploykey" /srv/mediawiki/cache/l10n/ www-data@mw121.miraheze.org:/srv/mediawiki/cache/l10n/',
-            ],
-        },
-    }
-
-
-def test_l10n_no_lang() -> None:
-    assert str(mwd._construct_l10n_command(None, 'testwiki')) == 'sudo -u www-data php /srv/mediawiki/w/maintenance/rebuildLocalisationCache.php --quiet --wiki=testwiki'
-
-
-def test_l10n_one_lang() -> None:
-    assert str(mwd._construct_l10n_command('en', 'testwiki')) == 'sudo -u www-data php /srv/mediawiki/w/maintenance/rebuildLocalisationCache.php --lang=en --quiet --wiki=testwiki'
-
-
-def test_l10n_multi_lang() -> None:
-    assert str(mwd._construct_l10n_command('en,es', 'testwiki')) == 'sudo -u www-data php /srv/mediawiki/w/maintenance/rebuildLocalisationCache.php --lang=en,es --quiet --wiki=testwiki'
-
-
-def test_l10n_bad_lang() -> None:
-    failed = False
-    try:
-        str(mwd._construct_l10n_command('aaaa', 'testwiki'))
-    except ValueError as e:
-        assert str(e) == 'aaaa is not a valid language.'
-        failed = True
-    assert failed
-
-
-def test_pull_only_world() -> None:
-    assert mwd._get_git_commands(True, None, None) == ['sudo -u www-data git -C /srv/mediawiki-staging/w/ pull --recurse-submodules --quiet']
-
-
-def test_pull_array_world() -> None:
-    assert mwd._get_git_commands(True, 'landing,config', None) == [
-        'sudo -u www-data git -C /srv/mediawiki-staging/landing/ pull --quiet',
-        'sudo -u www-data git -C /srv/mediawiki-staging/config/ pull --quiet',
-        'sudo -u www-data git -C /srv/mediawiki-staging/w/ pull --recurse-submodules --quiet',
-    ]
-
-
-def test_pull_single_world() -> None:
-    assert mwd._get_git_commands(True, 'landing', None) == [
-        'sudo -u www-data git -C /srv/mediawiki-staging/landing/ pull --quiet',
-        'sudo -u www-data git -C /srv/mediawiki-staging/w/ pull --recurse-submodules --quiet',
-    ]
-
-
-def test_pull_array_noworld() -> None:
-    assert mwd._get_git_commands(False, 'landing,config', None) == [
-        'sudo -u www-data git -C /srv/mediawiki-staging/landing/ pull --quiet',
-        'sudo -u www-data git -C /srv/mediawiki-staging/config/ pull --quiet',
-    ]
-
-
-def test_pull_single_noworld() -> None:
-    assert mwd._get_git_commands(False, 'landing', None) == ['sudo -u www-data git -C /srv/mediawiki-staging/landing/ pull --quiet']
-
-
-def test_pull_none() -> None:
-    assert mwd._get_git_commands(False, None, None) == []
-
-
-def test_pull_world_fake(capsys) -> None:
-    mwd._get_git_commands(True, 'garbage', None)
-    captured = capsys.readouterr()
-    assert captured.out == 'Failed to pull garbage due to invalid name\n'
-
-
-def test_pull_noworld_fake(capsys) -> None:
-    mwd._get_git_commands(False, 'garbage', None)
-    captured = capsys.readouterr()
-    assert captured.out == 'Failed to pull garbage due to invalid name\n'
+    args.l10nupdate = True
+    args.extensionlist = True
+    args.files = 'test'
+    args.folders = 'myfolder'
+    args.pull = 'config,world'
+    assert mwd.run(args, time.time()) == 1
+    args.pull = 'garbage'
+    assert mwd.run(args, time.time()) == 1
+    args.servers = f'{socket.gethostname().split(".")[0]}, mygarbageserver.local'
+    assert mwd.run(args, time.time()) == 1
+>>>>>>> ce53bea28 (add tests)

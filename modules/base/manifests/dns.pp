@@ -4,12 +4,18 @@ class base::dns {
         ensure => present,
     }
 
+    if $facts['processors']['count'] < 4 {
+        $threads = 4
+    } else {
+        $threads = $facts['processors']['count']
+    }
+
     file { '/etc/powerdns/recursor.conf':
         mode   => '0444',
         owner  => 'pdns',
         group  => 'pdns',
         notify => Service['pdns-recursor'],
-        source => 'puppet:///modules/base/dns/recursor.conf',
+        content => template('base/dns/recursor.conf.erb'),
     }
 
     service { 'pdns-recursor':
@@ -18,7 +24,9 @@ class base::dns {
     }
 
     monitoring::nrpe { 'PowerDNS Recursor':
-        command => '/usr/lib/nagios/plugins/check_dns -s 127.0.0.1 -H miraheze.org'
+        command  => '/usr/lib/nagios/plugins/check_dns -s 127.0.0.1 -H miraheze.org',
+        docs     => 'https://meta.miraheze.org/wiki/Tech:Icinga/Base_Monitoring#PowerDNS_Recursor',
+        critical => true
     }
 
     file { '/etc/resolv.conf':

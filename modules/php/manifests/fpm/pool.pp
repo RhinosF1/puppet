@@ -11,6 +11,7 @@
 # }
 #
 # === Parameters
+# [*filename*] The name of the file to install. Defaults to $title
 #
 # [*port*]
 #   If defined, the TCP port (on localhost) the pool will be listening on.
@@ -28,6 +29,7 @@
 #   default one. Defaults to an empty hash.
 #
 define php::fpm::pool(
+    String $filename = $title,
     Optional[Stdlib::Port] $port = undef,
     String $user = 'www-data',
     String $group = 'www-data',
@@ -38,6 +40,7 @@ define php::fpm::pool(
     }
 
     $title_safe  = regsubst($title, '[\W_]', '-', 'G')
+    $filename_safe = regsubst($filename, '[^\w\.]', '-', 'G')
     if $port == undef {
         $listen = "/run/php/fpm-${title_safe}.sock"
     } else {
@@ -53,8 +56,8 @@ define php::fpm::pool(
         'listen.allowed_clients' => '127.0.0.1',
         'listen.backlog' => 256,
         'pm'     => 'static',
-        'pm.max_children' => $facts['virtual_processor_count'],
-        'pm.max_requests' => 1000,
+        'pm.max_children' => $facts['processors']['count'],
+        'pm.max_requests' => 12000,
         'pm.status_path' => '/php_status',
         'access.format'  => '%{%Y-%m-%dT%H:%M:%S}t [%p] %{microseconds}d %{HTTP_HOST}e/%r %m/%s %{mega}M',
         'process.dumpable' => yes,
@@ -63,12 +66,19 @@ define php::fpm::pool(
     }
 
 
-    $pool_config = merge($base_config, $config)
-    file { "${php::config_dir}/fpm/pool.d/${title_safe}.conf":
+    $pool_config = $base_config + $config
+    file { "${php::config_dir}/fpm/pool.d/${filename_safe}.conf":
         content => template("php/php${php::version}-fpm.pool.conf.erb"),
         owner   => 'root',
         group   => 'root',
         mode    => '0444',
         notify  => Service["php${php::version}-fpm"]
+    }
+
+    # Configure rsyslog to monitor the php slowlog file and send the log messages to Graylog
+    rsyslog::input::file { 'php-slowlog':
+        path              => "/var/log/php${php::version}-fpm-${title_safe}-slowlog.log",
+        syslog_tag_prefix => '',
+        use_udp           => lookup('base::syslog::rsyslog_udp_localhost', {'default_value' => false}),
     }
 }

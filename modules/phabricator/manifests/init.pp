@@ -1,6 +1,8 @@
 # class: phabricator
-class phabricator {
-    ensure_packages(['python3-pygments', 'subversion'])
+class phabricator (
+  Integer $request_timeout = lookup('phabricator::php::request_timeout', {'default_value' => 60}),
+) {
+    stdlib::ensure_packages(['python3-pygments', 'subversion'])
 
     $fpm_config = {
         'include_path'                    => '".:/usr/share/php"',
@@ -11,7 +13,6 @@ class phabricator {
         'error_reporting'                 => 'E_ALL & ~E_STRICT',
         'mysql'                           => { 'connect_timeout' => 3 },
         'default_socket_timeout'          => 60,
-        'session.upload_progress.enabled' => 0,
         'enable_dl'                       => 0,
         'opcache' => {
                 'enable' => 1,
@@ -22,7 +23,7 @@ class phabricator {
                 'validate_timestamps' => 1,
                 'revalidate_freq' => 10,
         },
-        'max_execution_time' => 230,
+        'max_execution_time' => 60,
         'post_max_size' => '10M',
         'track_errors' => 'Off',
         'upload_max_filesize' => '10M',
@@ -38,7 +39,7 @@ class phabricator {
         'zip',
     ]
 
-    $php_version = lookup('php::php_version', {'default_value' => '7.4'})
+    $php_version = lookup('php::php_version', {'default_value' => '8.2'})
 
     # Install the runtime
     class { '::php':
@@ -61,7 +62,7 @@ class phabricator {
         ensure => present,
         config => {
             'emergency_restart_interval'  => '60s',
-            'emergency_restart_threshold' => $facts['virtual_processor_count'],
+            'emergency_restart_threshold' => $facts['processors']['count'],
             'process.priority'            => -19,
         },
     }
@@ -87,17 +88,13 @@ class phabricator {
     $fpm_workers_multiplier = lookup('php::fpm::fpm_workers_multiplier', {'default_value' => 1.5})
     $fpm_min_child = lookup('php::fpm::fpm_min_child', {'default_value' => 4})
 
-    $num_workers = max(floor($facts['virtual_processor_count'] * $fpm_workers_multiplier), $fpm_min_child)
-    # These numbers need to be positive integers
-    $max_spare = ceiling($num_workers * 0.3)
-    $min_spare = ceiling($num_workers * 0.1)
+    $num_workers = max(floor($facts['processors']['count'] * $fpm_workers_multiplier), $fpm_min_child)
     php::fpm::pool { 'www':
         config => {
-            'pm'                   => 'dynamic',
-            'pm.max_spare_servers' => $max_spare,
-            'pm.min_spare_servers' => $min_spare,
-            'pm.start_servers'     => $min_spare,
-            'pm.max_children'      => $num_workers,
+            'pm'                        => 'static',
+            'pm.max_children'           => $num_workers,
+            'request_terminate_timeout' => $request_timeout,
+            'request_slowlog_timeout'   => 15,
         }
     }
 
@@ -122,40 +119,30 @@ class phabricator {
         ensure => directory,
     }
 
+    file { '/srv/phab/libext':
+        ensure  => directory,
+        require => File['/srv/phab']
+    }
+
     git::clone { 'arcanist':
         ensure    => present,
         directory => '/srv/phab/arcanist',
-        origin    => 'https://github.com/phacility/arcanist.git',
+        origin    => 'https://github.com/phorgeit/arcanist.git',
         require   => File['/srv/phab'],
     }
 
-    git::clone { 'phabricator':
+    git::clone { 'phorge':
         ensure    => present,
-        directory => '/srv/phab/phabricator',
-        origin    => 'https://github.com/phacility/phabricator.git',
+        directory => '/srv/phab/phorge',
+        origin    => 'https://github.com/phorgeit/phorge.git',
         require   => File['/srv/phab'],
     }
-
-    #exec { "chk_phab_ext_git_exist":
-    #    command => 'true',
-    #    path    =>  ['/usr/bin', '/usr/sbin', '/bin'],
-    #    onlyif  => 'test ! -d /srv/phab/phabricator/src/extensions/.git'
-    #}
-
-    #file {'remove_phab_ext_dir_if_no_git':
-    #    ensure  => absent,
-    #    path    => '/srv/phab/phabricator/src/extensions',
-    #    recurse => true,
-    #    purge   => true,
-    #    force   => true,
-    #    require => Exec['chk_phab_ext_git_exist'],
-    #}
 
     git::clone { 'phabricator-extensions':
         ensure    => latest,
-        directory => '/srv/phab/phabricator/src/extensions',
+        directory => '/srv/phab/libext/phab-extensions',
         origin    => 'https://github.com/miraheze/phabricator-extensions.git',
-        require   => File['/srv/phab'],
+        require   => File['/srv/phab/libext'],
     }
 
     file { '/srv/phab/repos':
@@ -195,20 +182,20 @@ class phabricator {
         ],
     }
 
-    $phab_settings = merge($phab_yaml, $phab_private, $phab_setting)
+    $phab_settings = $phab_yaml + $phab_private + $phab_setting
 
-    file { '/srv/phab/phabricator/conf/local/local.json':
+    file { '/srv/phab/phorge/conf/local/local.json':
         ensure  => present,
-        content => template('phabricator/local.json.erb'),
+        content => stdlib::to_json_pretty($phab_settings),
         notify  => Service['phd'],
-        require => Git::Clone['phabricator'],
+        require => Git::Clone['phorge'],
     }
 
     systemd::service { 'phd':
         ensure  => present,
         content => systemd_template('phd'),
         restart => true,
-        require => File['/srv/phab/phabricator/conf/local/local.json'],
+        require => File['/srv/phab/phorge/conf/local/local.json'],
     }
 
     monitoring::services { 'phab.miraheze.wiki HTTPS':
@@ -219,7 +206,7 @@ class phabricator {
             http_vhost  => 'phab.miraheze.wiki',
             http_uri    => 'https://phab.miraheze.wiki/file/data/b6eckvcmsmmjwe6gb2as/PHID-FILE-c6u44mun2axi3qq63u5t/ManageWiki-GH.png'
         },
-     }
+    }
 
     monitoring::services { 'phabricator.miraheze.org HTTPS':
         check_command => 'check_http',
@@ -227,9 +214,24 @@ class phabricator {
             http_ssl   => true,
             http_vhost => 'phabricator.miraheze.org',
         },
-     }
+    }
 
     monitoring::nrpe { 'phd':
         command => '/usr/lib/nagios/plugins/check_procs -a phd -c 1:'
+    }
+
+    cron { 'backups-phabricator':
+        ensure   => present,
+        command  => '/usr/local/bin/miraheze-backup backup phabricator > /var/log/phabricator-backup.log 2>&1',
+        user     => 'root',
+        minute   => '0',
+        hour     => '1',
+        monthday => ['1', '15'],
+    }
+
+    monitoring::nrpe { 'Backups Phabricator Static':
+        command  => '/usr/lib/nagios/plugins/check_file_age -w 1555200 -c 1814400 -f /var/log/phabricator-backup.log',
+        docs     => 'https://meta.miraheze.org/wiki/Backups#General_backup_Schedules',
+        critical => true
     }
 }

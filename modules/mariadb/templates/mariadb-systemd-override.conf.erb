@@ -1,3 +1,6 @@
 # now that we host alot of dbs the timeout keeps getting hit
 [Service]
 TimeoutStartSec=0
+Restart=always
+# Default is 32768 in mariadb systemd service
+LimitNOFILE=2400540

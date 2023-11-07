@@ -1,13 +1,16 @@
 # === Class mediawiki::deploy
 #
 # MediaWiki deploy files
-class mediawiki::deploy {
+class mediawiki::deploy (
+    Optional[String] $branch = undef,
+    Optional[String] $branch_mw_config = undef,
+) {
     include mediawiki::extensionsetup
 
     if lookup(mediawiki::is_canary) {
         file { '/srv/mediawiki-staging/deploykey.pub':
             ensure  => present,
-            content => 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDktIRXHBi4hDZvb6tBrPZ0Ag6TxLbXoQ7CkisQqOY6V MediaWikiDeploy',
+            content => 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFEak8evb6DAVAeYTl8Gyg0uCrcMAfPt9CUm++4NO8fb MediaWikiDeploy',
             owner   => 'www-data',
             group   => 'www-data',
             mode    => '0400',
@@ -22,32 +25,33 @@ class mediawiki::deploy {
             mode   => '0400',
             before => File['/usr/local/bin/deploy-mediawiki'],
         }
-        
+
         file { '/var/www/.ssh':
-            ensure  => directory,
-            owner   => 'www-data',
-            group   => 'www-data',
-            mode    => '0400',
-            before  => File['/usr/local/bin/deploy-mediawiki'],
+            ensure => directory,
+            owner  => 'www-data',
+            group  => 'www-data',
+            mode   => '0400',
+            before => File['/usr/local/bin/deploy-mediawiki'],
         }
 
         file { '/var/www/.ssh/known_hosts':
             content => template('mediawiki/mw-user-known-hosts.erb'),
             owner   => 'www-data',
             group   => 'www-data',
-            mode    => '644',
+            mode    => '0644',
             require => File['/var/www/.ssh'],
         }
     }
 
-    ensure_packages(
+    stdlib::ensure_packages(
         'langcodes',
         {
             ensure   => '3.3.0',
             provider => 'pip3',
+            install_options => [ '--break-system-packages' ],
             before   => File['/usr/local/bin/deploy-mediawiki'],
             require  => Package['python3-pip'],
-	},
+        },
     )
 
     file { '/srv/mediawiki-staging':

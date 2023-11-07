@@ -6,14 +6,13 @@ Unattended-Upgrade::Origins-Pattern {
 // List of packages to not update (regexp are supported)
 Unattended-Upgrade::Package-Blacklist {
 	"gdnsd";
-	"glusterfs-";
 	"libc6";
 	"libc6-dev";
 	"libc6-i686";
 	"mariadb-";
 	"php-";
 	"php7.4-";
-	"php7.3-";
+	"php8.2-";
 	"puppetdb";
 	"puppet-";
 	"redis-";
@@ -21,7 +20,7 @@ Unattended-Upgrade::Package-Blacklist {
 };
 
 Unattended-Upgrade::Mail "sre-infrastructure@miraheze.org";
-Unattended-Upgrade::MailOnlyOnError "true";
+Unattended-Upgrade::MailReport "only-on-error";
 
 Unattended-Upgrade::Remove-Unused-Dependencies "true";
 

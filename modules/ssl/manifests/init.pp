@@ -1,6 +1,6 @@
 # === Class ssl
-class ssl {    
-    ensure_packages('certbot')
+class ssl {
+    stdlib::ensure_packages('certbot')
 
     file { '/etc/letsencrypt/cli.ini':
         ensure  => present,
@@ -12,7 +12,7 @@ class ssl {
     }
 
     ['/var/www', '/var/www/.well-known', '/var/www/.well-known/acme-challenge'].each |$folder| {
-        file { "${folder}":
+        file { $folder:
             ensure => directory,
             owner  => 'root',
             group  => 'root',
@@ -27,11 +27,11 @@ class ssl {
     }
 
     file { '/home/ssl-admins':
-        ensure  => directory,
-        owner   => 'puppet',
-        group   => 'ssl-admins',
-        mode    => '0660',
-        recurse => true,
+        ensure    => directory,
+        owner     => 'puppet',
+        group     => 'ssl-admins',
+        mode      => '0660',
+        recurse   => true,
         max_files => '7000',
     }
 
@@ -56,6 +56,12 @@ class ssl {
         group  => 'root',
         mode   => '0770',
     }
+    file { '/srv/dns':
+        ensure => directory,
+        owner  => 'root',
+        group  => 'root',
+        mode   => '0770',
+    }
 
     file { '/var/lib/nagios/ssl-acme':
         ensure => present,
@@ -65,33 +71,41 @@ class ssl {
         mode   => '0775',
     }
 
-    file { '/var/lib/nagios/id_rsa':
+    file { '/var/lib/nagios/id_ed25519':
         ensure => present,
-        source => 'puppet:///private/acme/id_rsa',
+        source => 'puppet:///private/acme/id_ed25519',
         owner  => 'root',
         group  => 'root',
         mode   => '0400',
     }
 
+    file { '/var/lib/nagios/id_ed25519.pub':
+        ensure => present,
+        source => 'puppet:///private/acme/id_ed25519.pub',
+        owner  => 'root',
+        group  => 'root',
+        mode   => '0644',
+    }
+
     # We do not need to run the ssl renewal cron,
     # we run our own service.
     file { '/etc/cron.d/certbot':
-        ensure => absent,
+        ensure  => absent,
         require => Package['certbot'],
     }
 
     service { 'certbot':
-        ensure    => 'stopped',
-        enable    => 'mask',
-        provider  => 'systemd',
-        require   => Package['certbot'],
+        ensure   => 'stopped',
+        enable   => 'mask',
+        provider => 'systemd',
+        require  => Package['certbot'],
     }
 
     service { 'certbot.timer':
-        ensure    => 'stopped',
-        enable    => 'mask',
-        provider  => 'systemd',
-        require   => Package['certbot'],
+        ensure   => 'stopped',
+        enable   => 'mask',
+        provider => 'systemd',
+        require  => Package['certbot'],
     }
 
     include ssl::web

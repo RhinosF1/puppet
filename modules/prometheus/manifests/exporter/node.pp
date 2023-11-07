@@ -53,7 +53,7 @@ class prometheus::exporter::node (
     }
     $textfile_directory = '/var/lib/prometheus/node.d'
 
-    ensure_packages('prometheus-node-exporter')
+    stdlib::ensure_packages('prometheus-node-exporter')
 
     $collectors_enabled = concat($collectors_default, $collectors_extra)
 
@@ -83,15 +83,21 @@ class prometheus::exporter::node (
     }
 
     service { 'prometheus-node-exporter':
-        ensure    => running,
-        enable    => true,
-        require   => Package['prometheus-node-exporter'],
+        ensure  => running,
+        enable  => true,
+        require => Package['prometheus-node-exporter'],
     }
 
-    $firewall_rules = query_facts('Class[Prometheus]', ['ipaddress', 'ipaddress6'])
-    $firewall_rules_mapped = $firewall_rules.map |$key, $value| { "${value['ipaddress']} ${value['ipaddress6']}" }
-    $firewall_rules_str = join($firewall_rules_mapped, ' ')
-
+    $firewall_rules_str = join(
+        query_facts("networking.domain='${facts['networking']['domain']}' and Class[Prometheus]", ['networking'])
+        .map |$key, $value| {
+            "${value['networking']['ip']} ${value['networking']['ip6']}"
+        }
+        .flatten()
+        .unique()
+        .sort(),
+        ' '
+    )
     ferm::service { 'prometheus node-exporter':
         proto  => 'tcp',
         port   => '9100',

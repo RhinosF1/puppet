@@ -3,6 +3,18 @@ define ssl::cert (
     VMlib::Ensure $ensure = 'present',
     String $certificate    = $title,
 ) {
+
+
+    if !defined(File['/etc/ssl/localcerts']) {
+        file { '/etc/ssl/localcerts':
+            ensure  => directory,
+            owner   => 'root',
+            group   => 'ssl-cert',
+            mode    => '0775',
+            require => Package['ssl-cert'],
+        }
+    }
+
     if defined(Service['nginx']) {
         $restart_nginx = Service['nginx']
     } else {
@@ -19,12 +31,13 @@ define ssl::cert (
 
     if !defined(File["/etc/ssl/private/${certificate}.key"]) {
         file { "/etc/ssl/private/${certificate}.key":
-            ensure => $ensure,
-            source => "puppet:///ssl-keys/${certificate}.key",
-            owner  => 'root',
-            group  => 'ssl-cert',
-            mode   => '0660',
-            notify => $restart_nginx,
+            ensure    => $ensure,
+            source    => "puppet:///ssl-keys/${certificate}.key",
+            owner     => 'root',
+            group     => 'ssl-cert',
+            mode      => '0660',
+            show_diff => false,
+            notify    => $restart_nginx,
         }
     }
 }

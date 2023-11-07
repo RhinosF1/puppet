@@ -1,14 +1,13 @@
 # class: reports
 class reports {
-    ensure_packages(['mariadb-client', 'composer'])
+    stdlib::ensure_packages(['mariadb-client', 'composer'])
 
     git::clone { 'TSPortal':
-        directory          => '/srv/TSPortal',
-        origin             => 'https://github.com/miraheze/TSPortal',
-        branch             => 'v7',
-        recurse_submodules => true,
-        owner              => 'www-data',
-        group              => 'www-data',
+        directory => '/srv/TSPortal',
+        origin    => 'https://github.com/miraheze/TSPortal',
+        branch    => 'v11',
+        owner     => 'www-data',
+        group     => 'www-data',
     }
 
     exec { 'reports_composer':
@@ -62,7 +61,7 @@ class reports {
         sapis          => ['cli', 'fpm'],
         config_by_sapi => {
             'cli' => $config_cli,
-            'fpm' => merge($config_cli, $config_fpm),
+            'fpm' => $config_cli + $config_fpm,
         },
     }
 
@@ -86,7 +85,7 @@ class reports {
         ensure => present,
         config => {
             'emergency_restart_interval'  => '60s',
-            'emergency_restart_threshold' => $facts['virtual_processor_count'],
+            'emergency_restart_threshold' => $facts['processors']['count'],
             'process.priority'            => -19,
         },
     }
@@ -99,10 +98,10 @@ class reports {
             package_name => "php${php_version}-xml",
             priority     => 15;
         'igbinary':
-             config   => {
-                 'extension'                => 'igbinary.so',
-                 'igbinary.compact_strings' => 'Off',
-             };
+            config   => {
+                'extension'                => 'igbinary.so',
+                'igbinary.compact_strings' => 'Off',
+            };
         'mysqlnd':
             package_name => '',
             priority     => 10;
@@ -128,7 +127,7 @@ class reports {
 
     # This will add an fpm pool
     # We want a minimum of $fpm_min_child workers
-    $num_workers = max(floor($facts['virtual_processor_count'] * $fpm_workers_multiplier), $fpm_min_child)
+    $num_workers = max(floor($facts['processors']['count'] * $fpm_workers_multiplier), $fpm_min_child)
     $request_timeout = lookup('php::fpm::request_timeout', {'default_value' => 60})
     php::fpm::pool { 'www':
         config => {
@@ -146,13 +145,14 @@ class reports {
         source  => 'puppet:///modules/reports/nginx.conf',
         monitor => true,
     }
-    
+
     $salt = lookup('passwords::piwik::salt')
     $password = lookup('passwords::db::reports')
     $app_key = lookup('reports::app_key')
     $reports_mediawiki_identifier = lookup('reports::reports_mediawiki_identifier')
     $reports_mediawiki_secret = lookup('reports::reports_mediawiki_secret')
     $reports_discord_webhook = lookup('reports::reports_discord_webhook')
+    $reports_write_key = lookup('reports::reports_write_key')
 
     file { '/srv/TSPortal/.env':
         ensure  => present,
@@ -160,5 +160,12 @@ class reports {
         owner   => 'www-data',
         group   => 'www-data',
         require => Git::Clone['TSPortal'],
+    }
+
+    cron { 'Task Scheduler':
+        ensure => present,
+        command => '/usr/bin/php /srv/TSPortal/artisan schedule:run >> /dev/null 2>&1',
+        user => 'www-data',
+        minute => '*'
     }
 }

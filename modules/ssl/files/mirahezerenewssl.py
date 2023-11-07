@@ -10,7 +10,7 @@ from flask import request
 
 app = Flask(__name__)
 
-logging.basicConfig(filename='/var/log/ssl/miraheze-renewal.log', format='%(asctime)s - %(message)s', level=logging.DEBUG, force=True)
+logging.basicConfig(filename='/var/log/ssl/miraheze-renewal.log', format='%(asctime)s - %(message)s', level=logging.INFO, force=True)
 
 
 @app.route('/renew', methods=['POST'])

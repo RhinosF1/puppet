@@ -24,6 +24,12 @@ class postfix {
         notify => Service['postfix'],
     }
 
+    file { '/etc/postfix/header_checks':
+        ensure => present,
+        source => 'puppet:///modules/postfix/header_checks',
+        notify => Service['postfix'],
+    }
+
     file { '/etc/postfix/ldap':
         ensure => directory,
     }
@@ -61,8 +67,8 @@ class postfix {
     }
 
     service { 'postfix':
-        ensure    => running,
-        require   => Package['postfix'],
+        ensure  => running,
+        require => Package['postfix'],
     }
 
     monitoring::services { 'SMTP':

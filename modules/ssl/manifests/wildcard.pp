@@ -4,6 +4,16 @@ define ssl::wildcard (
     $ssl_cert_key_private_path = '/etc/ssl/private',
 ) {
 
+    if !defined(File['/etc/ssl/localcerts']) {
+        file { '/etc/ssl/localcerts':
+            ensure  => directory,
+            owner   => 'root',
+            group   => 'ssl-cert',
+            mode    => '0775',
+            require => Package['ssl-cert'],
+        }
+    }
+
     if defined(Service['nginx']) {
         $restart_nginx = Service['nginx']
     } else {
@@ -20,12 +30,13 @@ define ssl::wildcard (
 
     if !defined(File["${ssl_cert_key_private_path}/wildcard.miraheze.org-2020-2.key"]) {
         file { "${ssl_cert_key_private_path}/wildcard.miraheze.org-2020-2.key":
-            ensure => 'present',
-            source => 'puppet:///ssl-keys/wildcard.miraheze.org-2020-2.key',
-            owner  => 'root',
-            group  => 'ssl-cert',
-            mode   => '0660',
-            notify => $restart_nginx,
+            ensure    => 'present',
+            source    => 'puppet:///ssl-keys/wildcard.miraheze.org-2020-2.key',
+            owner     => 'root',
+            group     => 'ssl-cert',
+            mode      => '0660',
+            show_diff => false,
+            notify    => $restart_nginx,
         }
     }
 }

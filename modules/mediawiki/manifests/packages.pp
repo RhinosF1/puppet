@@ -5,7 +5,7 @@ class mediawiki::packages {
     include imagemagick::install
     include mediawiki::firejail
 
-    ensure_packages([
+    stdlib::ensure_packages([
         'djvulibre-bin',
         'dvipng',
         'ghostscript',
@@ -19,6 +19,7 @@ class mediawiki::packages {
         'libglu1-mesa-dev',
         'libglew-dev',
         'libvips-tools',
+        'nodejs',
         'ploticus',
         'poppler-utils',
         'python3-pip',
@@ -33,10 +34,11 @@ class mediawiki::packages {
         'python3-minimal',
         'python3-requests',
         'rsync',
+        'python3-swiftclient',
     ])
 
     if !lookup(mediawiki::use_shellbox) {
-        ensure_packages(
+        stdlib::ensure_packages(
             'lilypond',
             {
                 ensure => absent,

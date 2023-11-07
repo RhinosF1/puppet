@@ -4,7 +4,7 @@
 # when ran alongside the MySQL server to be monitored, connecting via a local
 # UNIX socket is supported.
 class prometheus::exporter::mariadb {
-    ensure_packages('prometheus-mysqld-exporter')
+    stdlib::ensure_packages('prometheus-mysqld-exporter')
 
     file { '/etc/default/prometheus':
         ensure => directory,
@@ -64,9 +64,16 @@ class prometheus::exporter::mariadb {
         ensure  => running,
     }
 
-    $firewall_rules = query_facts('Class[Prometheus]', ['ipaddress', 'ipaddress6'])
-    $firewall_rules_mapped = $firewall_rules.map |$key, $value| { "${value['ipaddress']} ${value['ipaddress6']}" }
-    $firewall_rules_str = join($firewall_rules_mapped, ' ')
+    $firewall_rules_str = join(
+        query_facts("networking.domain='${facts['networking']['domain']}' and Class[Prometheus]", ['networking'])
+        .map |$key, $value| {
+            "${value['networking']['ip']} ${value['networking']['ip6']}"
+        }
+        .flatten()
+        .unique()
+        .sort(),
+        ' '
+    )
     ferm::service { 'prometheus mysqld_exporter':
         proto  => 'tcp',
         port   => '9104',

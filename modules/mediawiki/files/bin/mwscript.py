@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from typing import TYPE_CHECKING, TypedDict
 if TYPE_CHECKING:
     from typing import Optional
@@ -18,25 +19,12 @@ class CommandInfo(TypedDict):
 
 
 def get_commands(args: argparse.Namespace) -> CommandInfo:
-    longscripts = ('deleteBatch.php', 'importDump.php', 'importImages.php', 'nukeNS.php', 'rebuildall.php', 'refreshLinks.php', 'purgeList.php', 'cargoRecreateData.php')
+    validDBLists = ('active', 'beta')
+    longscripts = ('compressOld.php', 'deleteBatch.php', 'importDump.php', 'importImages.php', 'nukeNS.php', 'rebuildall.php', 'rebuildImages.php', 'refreshLinks.php', 'runJobs.php', 'purgeList.php', 'cargoRecreateData.php')
     long = False
     generate = None
-
-    script = args.script
-    long = (script in longscripts)
-
-    if len(script.split('/')) == 1:
-        script = f'/srv/mediawiki/w/maintenance/{script}'
-    else:
-        scriptsplit = script.split('/')
-        script = f'/srv/mediawiki/w/{scriptsplit[0]}/{scriptsplit[1]}/maintenance/{scriptsplit[2]}'
-        long = (scriptsplit[2] in longscripts)
-
-    validDBLists = ('active', 'beta')
-
     try:
-        # We don't handle errror cases first as that's simply a failback and it would not be simpler.
-        if args.extension:  # noqa: SIM106
+        if args.extension:
             wiki = ''
         elif args.arguments[0].endswith('wiki') or args.arguments[0] in [*['all'], *validDBLists]:  # noqa: SIM106
             wiki = args.arguments[0]
@@ -44,9 +32,41 @@ def get_commands(args: argparse.Namespace) -> CommandInfo:
             if args.arguments == []:
                 args.arguments = False
         else:
-            raise ValueError(f'First argument should be a valid wiki if --extension not given DEBUG: {args.arguments[0]} / {args.extension} / {[*["all"], *validDBLists]}')
+            print(f'First argument should be a valid wiki if --extension not given DEBUG: {args.arguments[0]} / {args.extension} / {[*["all"], *validDBLists]}')
+            sys.exit(2)
     except IndexError:
-        raise ValueError('Not enough Arguments given.')
+        print('Not enough Arguments given.')
+        sys.exit(2)
+    script = args.script
+    if not script.endswith('.php'):
+        if not args.runner:
+            print('Error: Specifiy --use-runner or --140 to enable MaintenanceRunner')
+            sys.exit(2)
+        if args.runner and not args.confirm:
+            print(f'WARNING: Please log usage of {longscripts}. Support for longscripts has not been added')
+            print('WARNING: Use of classes is not well tested. Please use with caution.')
+            if input("Type 'Y' to confirm (or any other key to stop - rerun without --140/--use-runner): ").upper() != 'Y':
+                sys.exit(2)
+    if args.runner:
+        runner = '/srv/mediawiki/w/maintenance/run.php '
+    else:
+        runner = ''
+    if script.endswith('.php'):  # assume class if not
+        scriptsplit = script.split('/')
+        if script in longscripts:
+            long = True
+        if len(scriptsplit) == 1:
+            script = f'{runner}/srv/mediawiki/w/maintenance/{script}'
+        elif len(scriptsplit) == 2:
+            script = f'{runner}/srv/mediawiki/w/maintenance/{scriptsplit[0]}/{scriptsplit[1]}'
+            if scriptsplit[1] in longscripts:
+                long = True
+        else:
+            script = f'{runner}/srv/mediawiki/w/{scriptsplit[0]}/{scriptsplit[1]}/maintenance/{scriptsplit[2]}'
+            if scriptsplit[2] in longscripts:
+                long = True
+    else:
+        script = f'{runner}{script}'
 
     if wiki == 'all':
         long = True
@@ -56,8 +76,8 @@ def get_commands(args: argparse.Namespace) -> CommandInfo:
         command = f'sudo -u www-data /usr/local/bin/foreachwikiindblist /srv/mediawiki/cache/{wiki}.json {script}'
     elif args.extension:
         long = True
-        generate = f'php /srv/mediawiki/w/extensions/MirahezeMagic/maintenance/generateExtensionDatabaseList.php --wiki=loginwiki --extension={args.extension}'
-        command = f'sudo -u www-data /usr/local/bin/foreachwikiindblist /home/{os.environ["LOGNAME"]}/{args.extension}.json {script}'
+        generate = f'php {runner}/srv/mediawiki/w/extensions/MirahezeMagic/maintenance/generateExtensionDatabaseList.php --wiki=loginwiki --extension={args.extension}'
+        command = f'sudo -u www-data /usr/local/bin/foreachwikiindblist /home/{os.getlogin()}/{args.extension}.json {script}'
     else:
         command = f'sudo -u www-data php {script} --wiki={wiki}'
     if args.arguments:
@@ -66,7 +86,7 @@ def get_commands(args: argparse.Namespace) -> CommandInfo:
 
 
 def run(info: CommandInfo) -> None:  # pragma: no cover
-    logcommand = f'/usr/local/bin/logsalmsg {info["command"]}'
+    logcommand = f'/usr/local/bin/logsalmsg "{info["command"]}'
     print('Will execute:')
     if info['generate']:
         print(info['generate'])
@@ -93,12 +113,13 @@ def get_args() -> argparse.Namespace:
     parser.add_argument('--extension', '--skin', dest='extension')
     parser.add_argument('--no-log', dest='nolog', action='store_true')
     parser.add_argument('--confirm', '--yes', '-y', dest='confirm', action='store_true')
+    parser.add_argument('--use-runner', '--140', dest='runner', action='store_true')
 
     args = parser.parse_known_args()[0]
     args.arguments += parser.parse_known_args()[1]
     return args
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == '__main__':
 
     run(get_commands(get_args()))

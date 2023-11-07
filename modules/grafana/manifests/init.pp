@@ -4,22 +4,22 @@ class grafana (
     String $mail_password = lookup('passwords::mail::noreply'),
     String $ldap_password = lookup('passwords::ldap_password'),
     String $grafana_db_host = lookup('grafana_db_host', {'default_value' => 'db112.miraheze.org'}),
-    String $grafana_ldap_server = lookup('grafana_ldap_server', {'default_value' => 'ldap141.miraheze.org'}),
 ) {
 
     include ::apt
 
-    file { '/etc/apt/trusted.gpg.d/grafana.gpg':
+    file { '/usr/share/keyrings/grafana.key':
         ensure => present,
-        source => 'puppet:///modules/grafana/grafana.gpg',
+        source => 'puppet:///modules/grafana/grafana.key',
     }
 
     apt::source { 'grafana_apt':
         comment  => 'Grafana stable',
-        location => 'https://packages.grafana.com/oss/deb',
+        location => 'https://apt.grafana.com',
         release  => 'stable',
         repos    => 'main',
-        require  => File['/etc/apt/trusted.gpg.d/grafana.gpg'],
+        keyring  => '/usr/share/keyrings/grafana.key',
+        require  => File['/usr/share/keyrings/grafana.key'],
         notify   => Exec['apt_update_grafana'],
     }
 
@@ -29,7 +29,7 @@ class grafana (
         logoutput   => true,
     }
 
-    package { 'grafana':
+    package { ['grafana', 'sqlite3']:
         ensure  => present,
         require => Apt::Source['grafana_apt'],
     }
@@ -71,5 +71,5 @@ class grafana (
             http_ssl   => true,
             http_vhost => 'grafana.miraheze.org',
         },
-     }
+    }
 }

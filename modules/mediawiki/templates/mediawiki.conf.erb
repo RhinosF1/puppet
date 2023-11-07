@@ -1,11 +1,11 @@
 server {
 	# We can only set backlog once per port (so this will be applied to the others below)
-	listen 80 deferred backlog=4096;
-	listen [::]:80 deferred ipv6only=on backlog=4096;
-	listen 443 ssl deferred http2 backlog=4096;
-	listen [::]:443 deferred ssl http2 ipv6only=on backlog=4096;
+	listen 80 deferred backlog=4096 reuseport;
+	listen [::]:80 deferred backlog=4096 reuseport;
+	listen 443 ssl deferred http2 backlog=4096 reuseport;
+	listen [::]:443 deferred ssl http2 backlog=4096 reuseport;
 
-	server_name miraheze.org www.miraheze.org;
+	server_name miraheze.org;
 	root /srv/mediawiki/landing;
 	index index.php index.html;
 
@@ -13,18 +13,12 @@ server {
 		return 403;
 	}
 
-	if ( $http_accept_language ~ ^(..) ) {
-		set $lang $1;
-	}
-
-	set $args lang=$lang&$args;
-
 	ssl_certificate /etc/ssl/localcerts/wildcard.miraheze.org-2020-2.crt;
 	ssl_certificate_key /etc/ssl/private/wildcard.miraheze.org-2020-2.key;
 
 	add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
 
-	add_header X-Served-By '<%= scope.lookupvar('::fqdn') %>';
+	add_header X-Served-By '<%= @facts['networking']['fqdn'] %>';
 
 	# XSS Protection
 	add_header x-xss-protection "1; mode=block" always;
@@ -33,6 +27,10 @@ server {
 
 	location ~ ^/(\.git|config) {
 		deny all;
+	}
+
+	location ~ /donate {
+		return 301 https://donate.miraheze.org;
 	}
 
 	location ~ \.php {
@@ -50,8 +48,33 @@ server {
 		return 301 https://discord.gg/TVAJTE4CUn;
 	}
 
-	location /donate {
-		return 301 https://donate.miraheze.org;
+	location ~ ^/((?!(css|discord|images)).)*$ {
+		# redirect query parameter to path
+		if ($arg_lang !~ '^$|en') {
+			return 301 /$arg_lang;
+		}
+
+		# redirect en (default) to /
+		if ($arg_lang = 'en') {
+			return 301 /;
+		}
+
+		rewrite ^/en(/.*)?$ / permanent;
+
+		# rewrite path to lang, so that, for example, /en will act the
+		# same as ?lang=en, but without the ?lang being needed 
+		rewrite ^/([a-z\-]+)(/.*)?$ /$2?lang=$1 break;
+
+		# if we aren't using a user selected language,
+		# use $http_accept_language
+		if ( $http_accept_language ~ ^(..) ) {
+			set $lang $1;
+		}
+
+		# rewrite to language if not default
+		if ($lang != 'en') {
+			rewrite ^(.*) $1?lang=$lang break;
+		}
 	}
 }
 
@@ -94,7 +117,7 @@ server {
 
 	add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
 
-	add_header X-Served-By '<%= scope.lookupvar('::fqdn') %>';
+	add_header X-Served-By '<%= @facts['networking']['fqdn'] %>';
 
 	# XSS Protection
 	add_header x-xss-protection "1; mode=block" always;
@@ -103,6 +126,7 @@ server {
 
 	error_page 404 /ErrorPages/404.php;
 	error_page 502 /ErrorPages/502.html;
+	error_page 504 /ErrorPages/504.php;
 
 	include /etc/nginx/mediawiki-includes;
 
@@ -124,7 +148,6 @@ server {
 	listen [::]:443 ssl http2;
 
 	server_name static.miraheze.org;
-	root /mnt/mediawiki-static;
 
 	send_timeout 120;
 
@@ -133,48 +156,29 @@ server {
 
 	add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
 
-	add_header X-Served-By '<%= scope.lookupvar('::fqdn') %>';
+	add_header X-Served-By '<%= @facts['networking']['fqdn'] %>';
 
 	# XSS Protection
 	add_header x-xss-protection "1; mode=block" always;
 
 	add_header X-Frame-Options "ALLOW-FROM static.miraheze.org";
 
-	# Increase cache hits on varnish
-	location ~ ^/(?!(private\/))(.+)wiki/(?!(dumps|thumb/(archive/)?[0-9a-f]/[0-9a-f][0-9a-f]/([^/]+)/[^/]*([0-9]+)px-.*$)) {
-		expires 1w;
-	}
-
-	location ~ ^/(.+)wiki/thumb/(archive/)?[0-9a-f]/[0-9a-f][0-9a-f]/([^/]+)/[^/]*([0-9]+)px-.*$ {
-		expires 1w;
-
-		# Thumbnail handler for MediaWiki
-		# This location only matches on a thumbnail's url
-		# If the file does not exist we use @thumb_handler to run the thumb_handler.php script
-		try_files $uri $uri/ @thumb_handler;
-	}
-
-	# Thumbnail 404 handler, only called by try_files when a thumbnail does not exist
-	location @thumb_handler {
-		# Do a rewrite here so that thumb.php gets the correct arguments
-		rewrite ^/(.+)wiki/thumb/(.+)$ https://$1.miraheze.org/w/thumb_handler.php/$2;
- 	}
-
-	location = /favicon.ico {
-		try_files /../../srv/mediawiki/favicons/$host.ico /../../srv/mediawiki/favicons/default.ico;
-	}
-
-	location = /apple-touch-icon.png {
-		try_files /../../srv/mediawiki/favicons/apple-touch-icon-$host.png /../../srv/mediawiki/favicons/apple-touch-icon-default.png;
-	}
-
 	location /private/ {
 		deny all;
 	}
 
-	location /dumps/ {
-		autoindex on;
-	}
+        location / {
+                proxy_pass https://swift-lb.miraheze.org;
+                proxy_http_version 1.1;
+                proxy_set_header Connection close; # should be default
+
+                proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_buffering    off;
+		proxy_buffer_size       32k;
+		proxy_buffers         4 32k;
+        }
 }
 
 server {
@@ -196,7 +200,7 @@ server {
 
 	add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
 
-	add_header X-Served-By '<%= scope.lookupvar('::fqdn') %>';
+	add_header X-Served-By '<%= @facts['networking']['fqdn'] %>';
 
 	# XSS Protection
 	add_header x-xss-protection "1; mode=block" always;
@@ -212,6 +216,35 @@ server {
 		fastcgi_pass unix:/run/<%= @php_fpm_sock %>;
 		fastcgi_read_timeout 140;
 		send_timeout 140;
+	}
+
+	location ~ ^/((?!(css|images)).)*$ {
+		# redirect query parameter to path
+		if ($arg_lang !~ '^$|en') {
+			return 301 /$arg_lang;
+		}
+
+		# redirect en (default) to /
+		if ($arg_lang = 'en') {
+			return 301 /;
+		}
+
+		rewrite ^/en(/.*)?$ / permanent;
+
+		# rewrite path to lang, so that, for example, /en will act the
+		# same as ?lang=en, but without the ?lang being needed 
+		rewrite ^/([a-z\-]+)(/.*)?$ /$2?lang=$1 break;
+
+		# if we aren't using a user selected language,
+		# use $http_accept_language
+		if ( $http_accept_language ~ ^(..) ) {
+			set $lang $1;
+		}
+
+		# rewrite to language if not default
+		if ($lang != 'en') {
+			rewrite ^(.*) $1?lang=$lang break;
+		}
 	}
 }
 
@@ -239,7 +272,7 @@ server {
 	add_header Strict-Transport-Security "max-age=604800";
 <%- end -%>
 
-	add_header X-Served-By '<%= scope.lookupvar('::fqdn') %>';
+	add_header X-Served-By '<%= @facts['networking']['fqdn'] %>';
 
 	# XSS Protection
 	add_header x-xss-protection "1; mode=block" always;
@@ -248,6 +281,7 @@ server {
 
 	error_page 404 /ErrorPages/404.php;
 	error_page 502 /ErrorPages/502.html;
+	error_page 504 /ErrorPages/504.php;
 
 	include /etc/nginx/mediawiki-includes;
 
