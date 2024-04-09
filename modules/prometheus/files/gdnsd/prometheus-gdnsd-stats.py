@@ -85,7 +85,7 @@ def collect_gdnsd_stats(stats, registry):
         lat_req = resolver.Resolver(configure=False)
         lat_req.nameservers = ['127.0.0.1']
         lat_s = time.time()
-        lat_req.resolve('miraheze.org')
+        lat_req.resolve('wikitide.net')
         lat_e = time.time()
         latency.set(round((lat_e - lat_s) * 1000, 2))
     except ValueError:
@@ -96,9 +96,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--outfile', metavar='FILE.prom',
                         help='Output file (stdout)')
-    parser.add_argument('--url', metavar='URL',
-                        help='gdnsd-2.x JSON URI (%(default)s)',
-                        default='http://localhost:3506/json')
     parser.add_argument('--ctlpath', metavar='PATH',
                         help='gdnsd-3.x gdnsdctl path (%(default)s)',
                         default='/usr/bin/gdnsdctl')
@@ -119,14 +116,8 @@ def main():
         raw = subprocess.check_output([args.ctlpath, 'stats'])
         json_stats = json.loads(raw)
     else:
-        # gdnsd-2.x uses HTTP and the url argument instead:
-        try:
-            response = requests.get(args.url, timeout=2)
-            response.raise_for_status()
-            json_stats = response.json()
-        except (requests.exceptions.RequestException, ValueError):
-            log.exception('Error fetching from {}'.format(args.url))
-            return 1
+        log.exception('Error running {}'.format(args.ctlpath))
+        return 1
 
     registry = CollectorRegistry()
     collect_gdnsd_stats(json_stats, registry)

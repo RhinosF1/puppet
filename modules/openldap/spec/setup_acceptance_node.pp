@@ -9,6 +9,9 @@ case $facts['os']['family'] {
     $ssl_key_source = '/etc/pki/tls/private/localhost.key'
     $ssl_cert_source = '/etc/pki/tls/certs/localhost.crt'
   }
+  default: {
+    fail("unsupported os family ${facts['os']['name']}")
+  }
 }
 if $facts['os']['family'] == 'RedHat' and versioncmp($facts['os']['release']['major'], '8') >= 0 {
   exec { 'gencerts':
@@ -46,19 +49,19 @@ file { '/etc/ldap/ssl':
   ensure => directory,
 }
 file { "/etc/ldap/ssl/${facts['networking']['fqdn']}.key":
-  ensure  => file,
-  mode    => '0644',
-  source  => $ssl_key_source,
+  ensure => file,
+  mode   => '0644',
+  source => $ssl_key_source,
 }
 file { "/etc/ldap/ssl/${facts['networking']['fqdn']}.crt":
-  ensure  => file,
-  mode    => '0644',
-  source  => $ssl_cert_source,
+  ensure => file,
+  mode   => '0644',
+  source => $ssl_cert_source,
 }
 file { '/etc/ldap/ssl/ca.pem':
-  ensure  => file,
-  mode    => '0644',
-  source  => $ssl_cert_source,
+  ensure => file,
+  mode   => '0644',
+  source => $ssl_cert_source,
 }
 
 # Hack to work around issues with recent systemd and docker with systemd running services as non-root
@@ -73,7 +76,7 @@ if $facts['os']['family'] == 'RedHat' {
       'ExecStartPre=',
       'ExecStartPre=/usr/bin/chown root:root /var/run/openldap',
       'ExecStart=',
-      'ExecStart=/usr/sbin/slapd -u root -h ${SLAPD_URLS} $SLAPD_OPTIONS',
+      'ExecStart=/usr/sbin/slapd -u root -h ${SLAPD_URLS} $SLAPD_OPTIONS', # lint:ignore:single_quote_string_with_variables
     ], "\n"),
   }
 }

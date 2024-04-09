@@ -4,7 +4,7 @@
     "groups": {
         "basic": {
             // Number of runner processes in this group
-            "runners": 1,
+            "runners": 5,
             // Job types to include ("*" means "all")
             "include": [
                 "*"
@@ -13,20 +13,23 @@
             "exclude": [
                 "AssembleUploadChunks",
                 "DataDumpGenerateJob",
+                "ImportDumpJob",
+                "ImportDumpNotifyJob",
                 "PublishStashedFile",
                 "refreshLinks",
                 "refreshLinksDynamic",
                 "refreshLinksPrioritized",
-                "parsoidCachePrewarm",
                 "RequestWikiAIJob",
                 "smw.changePropagationClassUpdate",
                 "uploadFromUrl",
                 "webVideoTranscode",
                 "webVideoTranscodePrioritized",
-                "NamespaceMigrationJob"
+                "NamespaceMigrationJob",
+                "RecordLintJob"
             ],
             "low-priority": [
-                "htmlCacheUpdate"
+                "htmlCacheUpdate",
+                "parsoidCachePrewarm"
             ]
         }
     },
@@ -48,9 +51,12 @@
         },
         // runJobs.php memory limits
         "memory": {
-            "*": "300M"
+            "*": "500M",
+            "parsoidCachePrewarm": "1400M"
         }
     },
+
+    "statsd": "10.0.15.145:8125",
 
     "redis": {
         // Ready queue trackers
@@ -65,5 +71,5 @@
     },
 
     // Command used to launch a runner for a given job queue
-    "dispatcher": "nice -19 php /srv/mediawiki/w/maintenance/run.php /srv/mediawiki/w/maintenance/runJobs.php --wiki=%(db)x --type=%(type)x --maxtime=%(maxtime)x --memory-limit=%(maxmem)x --result=json"
+    "dispatcher": "nice -19 php <%= @runner %>/srv/mediawiki/<%= @version %>/maintenance/runJobs.php --wiki=%(db)x --type=%(type)x --maxtime=%(maxtime)x --memory-limit=%(maxmem)x --result=json"
 }

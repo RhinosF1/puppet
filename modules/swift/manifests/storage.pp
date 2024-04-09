@@ -115,14 +115,21 @@ class swift::storage (
         mode    => '0444',
         owner   => 'root',
         group   => 'root',
-        source => 'puppet:///modules/swift/devicecheck.cron',
+        source  => 'puppet:///modules/swift/devicecheck.cron',
         require => File['/usr/local/bin/disable_rsync.py'],
     }
 
+    if ( $facts['networking']['interfaces']['ens19'] and $facts['networking']['interfaces']['ens18'] ) {
+        $address = $facts['networking']['interfaces']['ens19']['ip']
+    } elsif ( $facts['networking']['interfaces']['ens18'] ) {
+        $address = $facts['networking']['interfaces']['ens18']['ip6']
+    } else {
+        $address = $facts['networking']['ip6']
+    }
     monitoring::services { 'Swift Object Service':
         check_command => 'tcp',
         vars          => {
-            tcp_address => $facts['networking']['ip6'],
+            tcp_address => $address,
             tcp_port    => '6000',
         },
     }

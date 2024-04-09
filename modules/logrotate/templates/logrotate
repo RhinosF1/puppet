@@ -1,7 +1,0 @@
-<%= @logs %> {
-    <%= @time %>
-    missingok
-    rotate <%= @rotate %>
-    compress
-    <% if @delay %>delaycompress<% end %>
-}

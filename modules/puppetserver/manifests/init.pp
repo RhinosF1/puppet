@@ -8,7 +8,7 @@
 #
 # [*puppet_major_version*] Specify the puppetserver version you want to support / install.
 #
-# [*puppetserver_hostname*] Hostname of the puppetserver, eg puppet1.miraheze.org.
+# [*puppetserver_hostname*] Hostname of the puppetserver.
 #
 # [*puppetserver_java_opts*] Options to pass to the puppetserver, eg configuring the heap.
 #
@@ -66,16 +66,25 @@ class puppetserver(
     }
 
     git::clone { 'puppet':
-        ensure    => present,
+        ensure    => latest,
         directory => '/etc/puppetlabs/puppet/git',
-        origin    => 'https://github.com/miraheze/puppet.git',
+        origin    => 'https://github.com/miraheze/puppet',
         require   => Package['puppet-agent'],
     }
 
     git::clone { 'ssl':
-        ensure    => present,
+        ensure    => latest,
         directory => '/etc/puppetlabs/puppet/ssl-cert',
-        origin    => 'https://github.com/miraheze/ssl.git',
+        origin    => 'https://github.com/miraheze/ssl',
+        require   => Package['puppet-agent'],
+    }
+
+    git::clone { 'mediawiki-repos':
+        ensure    => latest,
+        directory => '/etc/puppetlabs/puppet/mediawiki-repos',
+        origin    => 'https://github.com/miraheze/mediawiki-repos',
+        owner     => 'puppet',
+        group     => 'puppet',
         require   => Package['puppet-agent'],
     }
 
@@ -232,13 +241,13 @@ class puppetserver(
     }
 
     cron { 'updatesfs':
-        ensure   => present,
-        command  => '/root/updatesfs',
-        user     => 'root',
-        hour     => 23,
-        minute   => 0,
+        ensure  => present,
+        command => '/root/updatesfs',
+        user    => 'root',
+        hour    => 23,
+        minute  => 0,
     }
-    
+
     monitoring::services { 'puppetserver':
         check_command => 'tcp',
         vars          => {
@@ -249,13 +258,13 @@ class puppetserver(
     # Backups
     cron { 'backups-sslkeys':
         ensure  => present,
-        command => '/usr/local/bin/miraheze-backup backup sslkeys > /var/log/sslkeys-backup.log 2>&1',
+        command => '/usr/local/bin/wikitide-backup backup sslkeys > /var/log/sslkeys-backup.log 2>&1',
         user    => 'root',
         minute  => '0',
         hour    => '6',
         weekday => '0',
     }
-    
+
     monitoring::nrpe { 'Backups SSLKeys':
         command  => '/usr/lib/nagios/plugins/check_file_age -w 864000 -c 1209600 -f /var/log/sslkeys-backup.log',
         docs     => 'https://meta.miraheze.org/wiki/Backups#General_backup_Schedules',
@@ -264,7 +273,7 @@ class puppetserver(
 
     cron { 'backups-private':
         ensure  => present,
-        command => '/usr/local/bin/miraheze-backup backup private > /var/log/private-backup.log 2>&1',
+        command => '/usr/local/bin/wikitide-backup backup private > /var/log/private-backup.log 2>&1',
         user    => 'root',
         minute  => '0',
         hour    => '3',

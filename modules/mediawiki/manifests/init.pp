@@ -1,31 +1,29 @@
 # === Class mediawiki
-class mediawiki(
-    Optional[String] $branch = undef,
-    Optional[String] $branch_mw_config = undef,
-) {
+class mediawiki {
     include mediawiki::cgroup
     include mediawiki::favicons
+    include mediawiki::logging
+    include mediawiki::monitoring
     include mediawiki::nginx
     include mediawiki::packages
-    include mediawiki::logging
     include mediawiki::php
-    include mediawiki::monitoring
 
     if lookup(mediawiki::use_staging) {
-        class { 'mediawiki::deploy':
-            branch           => $branch,
-            branch_mw_config => $branch_mw_config
-        }
+        include mediawiki::deploy
     } else {
         include mediawiki::rsync
     }
 
-    if lookup(jobrunner) {
-        include mediawiki::jobqueue::runner
-    }
+    include mediawiki::multiversion
 
     if lookup(mediawiki::use_shellbox) {
         include mediawiki::shellbox
+    }
+
+    class { 'role::prometheus::statsd_exporter':
+        relay_address     => '',
+        timer_type        => 'histogram',
+        histogram_buckets => lookup('role::prometheus::statsd_exporter::histogram_buckets', { 'default_value' => [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60] }),
     }
 
     if !lookup('jobrunner::intensive', {'default_value' => false}) {
@@ -59,32 +57,10 @@ class mediawiki(
         }
     }
 
-    file { '/etc/mathoid':
-        ensure  => directory,
-    }
-
-    file { '/etc/mathoid/config.yaml':
-        ensure  => present,
-        source  => 'puppet:///modules/mediawiki/mathoid_config.yaml',
-        require => File['/etc/mathoid'],
-    }
-
-    git::clone { 'mathoid':
-        ensure             => 'latest',
-        directory          => '/srv/mathoid',
-        origin             => 'https://github.com/miraheze/mathoid-deploy.git',
-        branch             => 'master',
-        owner              => 'www-data',
-        group              => 'www-data',
-        mode               => '0755',
-        recurse_submodules => true,
-        require            => Package['librsvg2-dev'],
-    }
-
     git::clone { '3d2png':
         ensure             => 'latest',
         directory          => '/srv/3d2png',
-        origin             => 'https://github.com/miraheze/3d2png-deploy.git',
+        origin             => 'https://github.com/miraheze/3d2png-deploy',
         branch             => 'master',
         owner              => 'www-data',
         group              => 'www-data',
@@ -93,27 +69,8 @@ class mediawiki(
         require            => Package['libjpeg-dev'],
     }
 
-    git::clone { 'femiwiki-deploy':
-        ensure    => 'latest',
-        directory => '/srv/mediawiki/femiwiki-deploy',
-        origin    => 'https://github.com/miraheze/femiwiki-deploy.git',
-        branch    => $branch,
-        owner     => 'www-data',
-        group     => 'www-data',
-        mode      => '0755',
-    }
-
-    file { '/srv/mediawiki/w/skins/Femiwiki/node_modules':
-        ensure  => 'link',
-        target  => '/srv/mediawiki/femiwiki-deploy/node_modules',
-        owner   => 'www-data',
-        group   => 'www-data',
-        require => [ Git::Clone['femiwiki-deploy'], File['/srv/mediawiki/w'] ],
-    }
-
     file { [
         '/srv/mediawiki',
-        '/srv/mediawiki/w',
         '/srv/mediawiki/config',
         '/srv/mediawiki/cache',
         '/srv/mediawiki/stopforumspam',
@@ -154,18 +111,9 @@ class mediawiki(
         require => File['/srv/mediawiki'],
     }
 
-    file { '/srv/mediawiki/w/LocalSettings.php':
-        ensure  => 'link',
-        target  => '/srv/mediawiki/config/LocalSettings.php',
-        owner   => 'www-data',
-        group   => 'www-data',
-        require => [ File['/srv/mediawiki/w'], File['/srv/mediawiki/config'] ],
-    }
-
     $wikiadmin_password         = lookup('passwords::db::wikiadmin')
     $mediawiki_password         = lookup('passwords::db::mediawiki')
     $redis_password             = lookup('passwords::redis::master')
-    $noreply_password           = lookup('passwords::mail::noreply')
     $mediawiki_upgradekey       = lookup('passwords::mediawiki::upgradekey')
     $mediawiki_secretkey        = lookup('passwords::mediawiki::secretkey')
     $hcaptcha_secretkey         = lookup('passwords::hcaptcha::secretkey')
@@ -195,6 +143,18 @@ class mediawiki(
         ensure => 'present',
         mode   => '0755',
         source => 'puppet:///modules/mediawiki/bin/foreachwikiindblist',
+    }
+
+    file { '/usr/local/bin/getMWVersion':
+        ensure => 'present',
+        mode   => '0755',
+        source => 'puppet:///modules/mediawiki/bin/getMWVersion.php',
+    }
+
+    file { '/usr/local/bin/getMWVersions':
+        ensure => 'present',
+        mode   => '0755',
+        source => 'puppet:///modules/mediawiki/bin/getMWVersions.php',
     }
 
     file { '/usr/local/bin/mwscript':
